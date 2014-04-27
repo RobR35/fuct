@@ -172,7 +172,7 @@ class Device():
         last = end + 1
         counter = 0
         for page in xrange(start, last):
-            logger.info("Ripping page 0x%02x" % page)
+            logger.info("16k page @ 0x%02x" % page)
             self.set_page(page)
             data = self.read_page()
             counter += 1
@@ -188,9 +188,13 @@ class Device():
             self.set_page(page)
             self.erase_page()
             if logger.getEffectiveLevel() == logging.INFO:
-                sys.stdout.write("\r[%3d%%]" % ((float(counter) / float(total)) * 100))
+                sys.stdout.write("\r [%3d%%]" % ((float(counter) / float(total)) * 100))
                 sys.stdout.flush()
             counter += 1
+        if logger.getEffectiveLevel() == logging.INFO:
+            sys.stdout.write("\r")
+            sys.stdout.flush()
+
         logging.info("Done")
 
         return True
@@ -203,9 +207,14 @@ class Device():
             resp = self.__read_block(addr, 0xFF)
             data += resp.data
             if logger.getEffectiveLevel() == logging.INFO:
-                sys.stdout.write("\r[%d bytes]" % len(data))
+                sys.stdout.write("\r [%d bytes]" % len(data))
                 sys.stdout.flush()
             addr += 256
+        if logger.getEffectiveLevel() == logging.INFO:
+            sys.stdout.write("\r")
+            sys.stdout.flush()
+
+        logging.info("Done")
 
         return data
 
