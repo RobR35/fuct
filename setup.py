@@ -13,6 +13,8 @@ setup(
     version=__version__,
     packages=find_packages(),
     install_requires=[
+        'pyserial >= 2.7',
+        'colorlog >= 2.0.0'
     ],
     entry_points={
         'console_scripts': ['fuct = fuct.main:main']
