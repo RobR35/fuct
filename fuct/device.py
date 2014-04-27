@@ -125,7 +125,7 @@ class Device():
         if info is not None:
             logger.info('SM Identified as: %s' % info)
         else:
-            logger.warning('SM is not recognized')
+            logger.warning('SM is not recognized, use debug mode to get more info')
 
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.debug('SM Device ID: 0x%02x%02x' % (smdata[self.SM_DEVICE_IDX], smdata[self.SM_DEVICE_IDX + 1]))
@@ -144,7 +144,7 @@ class Device():
                              (len(mempage.data), mempage.page, mempage.address))
 
         if erase:
-            self.write_page(mempage.page)
+            self.set_page(mempage.page)
             self.erase_page()
 
         blocks = len(mempage.data) / self.BLOCK_SIZE
@@ -167,12 +167,25 @@ class Device():
             block_data = mempage.data[-trailing:]
             self.__write_block(start_addr, block_data)
 
+    def rip_and_save_pages(self, filepath, start, end):
+        total = end - start
+        last = end + 1
+        counter = 0
+        for page in xrange(start, last):
+            logger.info("Ripping page 0x%02x" % page)
+            self.set_page(page)
+            data = self.read_page()
+            counter += 1
+        logging.info("Done")
+
+        return data
+
     def erase_pages(self, start, end):
         total = end - start
         last = end + 1
         counter = 0
         for page in xrange(start, last):
-            self.write_page(page)
+            self.set_page(page)
             self.erase_page()
             if logger.getEffectiveLevel() == logging.INFO:
                 sys.stdout.write("\r[%3d%%]" % ((float(counter) / float(total)) * 100))
@@ -182,10 +195,24 @@ class Device():
 
         return True
 
-    def write_page(self, page):
+    def read_page(self):
+        addr = 0x8000
+        data = bytearray()
+
+        for page in range(0, 64):
+            resp = self.__read_block(addr, 0xFF)
+            data += resp.data
+            if logger.getEffectiveLevel() == logging.INFO:
+                sys.stdout.write("\r[%d bytes]" % len(data))
+                sys.stdout.flush()
+            addr += 256
+
+        return data
+
+    def set_page(self, page):
         self.__write_byte(self.SM_PPAGE, page)
 
-    # Lowlevel commands
+    # Lowlevel commands  TODO: move to privates?
 
     def reset(self):
         self.__write_command(self.CMD_RESET)

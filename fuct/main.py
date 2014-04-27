@@ -93,7 +93,11 @@ class CmdHandler:
     @staticmethod
     def do_rip(params):
         if params[0] is not None:
-            return "ripped... " + params[0]
+            dev = CmdHandler.get_device(params[0])
+            logger.info("Ripping pages from 0xE0 to 0xFF")
+            dev.rip_and_save_pages('demo.s19', 0xE0, 0xFF)
+
+            return True
 
         raise ValueError('serial port argument cannot be empty')
 
@@ -101,7 +105,7 @@ class CmdHandler:
     def do_erase(params):
         if params[0] is not None:
             dev = CmdHandler.get_device(params[0])
-            logger.info("Erasing pages...")
+            logger.info("Erasing pages from 0xE0 to 0xFF")
             resp = dev.erase_pages(0xE0, 0xFF)  # TODO: get pages from device info
 
             return True
