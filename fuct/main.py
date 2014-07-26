@@ -20,6 +20,10 @@ class CmdHandler:
         return getattr(self, 'do_' + command.lower(), None)
 
     @staticmethod
+    def is_ascii(s):
+        return all(c < 128 for c in s)
+
+    @staticmethod
     def get_device(port):
         dev = device.Device(port)
         dev.reinit()
@@ -36,6 +40,11 @@ class CmdHandler:
                 records = validator.verify_firmware(params[1])
                 if records:
                     logger.info("Parsed %d records" % len(records))
+                    if records[0].stype[0] == 'S0':
+                        header = records[0].data if CmdHandler.is_ascii(records[0].data) else "[binary data]"
+                        logger.info("Header info: %s" % header)
+                    else:
+                        logger.info("No header...")
                     return True
                 else:
                     return False

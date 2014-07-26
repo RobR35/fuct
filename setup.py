@@ -26,7 +26,7 @@ setup(
     license='BSD',
     url='https://github.com/MrOnion/fuct',
     platforms=['any'],
-    keywords='freeems loader command line ',
+    keywords='freeems loader commandline',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: BSD License',

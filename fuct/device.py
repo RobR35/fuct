@@ -99,7 +99,10 @@ class Device():
         resp = self.device_info()
         if ord(resp.data[0]) == self.DEVICE_INFO_CONSTANT:
             if ord(resp.data[1]) == 0xC4 and ord(resp.data[2]) == 0x10:  # TODO: check more device ids
-                logger.info("Device is S12 XDP512")
+                logger.info("Device is S12 XDP512 (FreeEMS compatible)")
+                return True
+            elif ord(resp.data[1]) == 0x31 and ord(resp.data[2]) == 0x02:
+                logger.info("Device is S12 C64 (MS2)")
                 return True
 
         logger.error("Device (C: 0x%02x, ID: 0x%02x%02x) is not supported" %
@@ -107,12 +110,15 @@ class Device():
         return False
 
     def analyse_device(self):
+        sm_file = open('monitor.fuct', 'w')
         addr = 0xF800
         smdata = bytearray()
         for page in range(0, 8):
             resp = self.__read_block(addr, 0xFF)
             smdata += resp.data
+            sm_file.write("%04x:::%s\n" % (addr, binascii.hexlify(resp.data)))
             addr += 256
+        sm_file.close()
 
         if len(smdata) != 2048:
             raise ValueError('Invalid SM size (%d bytes), should be 2k' % len(smdata))
