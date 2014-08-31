@@ -12,15 +12,15 @@ def verify_firmware(filepath):
     lf_count = content.count('\n')
 
     if lf_count > 0 and cr_count == 0:
-        logger.info("S19 file contains " + str(lf_count) + " lines (Unix style EOL)")
+        logger.info("S19 file contains " + str(lf_count) + " lines (Unix)")
     elif lf_count == 0 and cr_count > 0:
-        logger.info("S19 file contains " + str(lf_count) + " lines (old Mac style EOL)")
+        logger.info("S19 file contains " + str(lf_count) + " lines (old Macintosh)")
     elif cr_count > 0 and lf_count == cr_count:
-        logger.info("S19 file contains " + str(lf_count) + " lines (Windows style EOL)")
+        logger.info("S19 file contains " + str(lf_count) + " lines (Windows)")
     elif lf_count > 0 and cr_count > 0 and lf_count != cr_count:
         logger.warning("S19 file contains mixed EOL characters?!")
     elif lf_count == 0 and cr_count == 0:
-        logger.warning("S19 file contains no lines?!")
+        logger.warning("S19 file contains no EOL chatacters?!")
 
     records = []
     for ln, line in enumerate(content.splitlines()):
@@ -35,17 +35,17 @@ def verify_firmware(filepath):
 
 def parse_line(line):
     if len(line) == 0:
-        raise TypeError('Blank line!')
+        raise TypeError('Blank line detected')
     if len(line) < 10:
-        raise TypeError('Insufficient characters to make up a minimal S19 record')
+        raise TypeError('Not enough characters to make up a minimal S19 record')
     if len(line) % 2 != 0:
-        raise TypeError('Length of line is not even, must contain hex pairs')
+        raise TypeError('Length of line is not even, must contain 2-byte hex pairs')
     if not line.islower() and not line.isupper():
         raise TypeError('Line contains mixed case characters')
 
     prefix = line[0] + line[1]
     if prefix not in STYPES:
-        raise TypeError('Line did not begin with S0 to S9')
+        raise TypeError('Line did not begin with S0 record and end with S9 record')
 
     return parse_record(line)
 
@@ -59,7 +59,7 @@ def parse_record(line):
     checksum = ord(adata[-1:])
 
     if len(data) > 256:
-        raise TypeError('Data too long for byte count')
+        raise TypeError('Data too long (>256 bytes)')
 
     lrc = (sum(adata[:-1]) & 0xFF) ^ 0xFF
     if lrc != checksum:
@@ -69,7 +69,7 @@ def parse_record(line):
         raise TypeError('Count field mismatch')
 
     if stype[0] == 'S5' and len(data) > 4:
-        raise TypeError('S5 records may only have 16, 24 or 32 bit unsigned byte counts')
+        raise TypeError('S5 records may only have 16, 24 or 32 bit unsigned byte count')
     elif stype[2] and len(data) == 0:
         raise TypeError('%s records need at least %i address bytes and data byte(s)' % (stype[0], stype[1]))
     elif not stype[2] and len(data) > 0:

@@ -21,8 +21,11 @@ class SMResponse():
 
 
 class Device():
+    # Motorola/Freescale serial monitor command characters
+    # application note AN2548
 
-    # Serial monitor characters
+    # TODO: implement common progress bar for load, rip and erase tasks
+
     SM_OPEN = 0x0D  # Carriage return
     SM_PROMPT = 0x3E  # > Prompt symbol
     SM_PPAGE = 0x30  # 0
@@ -54,7 +57,7 @@ class Device():
     CMD_TRACE_ONE = 0xB2
     CMD_HALT = 0xB3
     CMD_RESET = 0xB4
-    CMD_ERASE_RANGE = 0xB5  # Not supported by SM
+    CMD_ERASE_RANGE = 0xB5  # Not implemented in SM
     CMD_ERASE_ALL = 0xB6
     CMD_DEVICE_INFO = 0xB7
     CMD_ERASE_PAGE = 0xB8
@@ -68,7 +71,7 @@ class Device():
     RC_INVALID_SP_VALUE = 0xE4
     RC_ACCESS_TO_NON_VOLATILE = 0xE5
     RC_FLASH_ERROR = 0xE6
-    # 0xE7 and 0xE8 not implemented
+    # 0xE7 and 0xE8 not implemented in SM
     RC_EEPROM_ERROR = 0xE9
 
     # Status codes
@@ -164,7 +167,7 @@ class Device():
 
             self.__write_block(start_addr, block_data)
 
-            if verify:  # TODO: do verification
+            if verify:  # TODO: implement verification
                 pass
 
             start_addr += self.BLOCK_SIZE
@@ -183,6 +186,8 @@ class Device():
             data = self.read_page()
             counter += 1
         logging.info("Done")
+
+        # TODO: implement file save
 
         return data
 

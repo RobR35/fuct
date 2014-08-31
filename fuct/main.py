@@ -3,6 +3,7 @@ import logging
 import os
 import argparse
 import serial
+from serial.serialutil import SerialException
 
 from . import validator
 from . import device
@@ -90,14 +91,14 @@ class CmdHandler:
 
             return True
 
-        raise ValueError('cannot load shit captain, no file nor serial?!')
+        raise ValueError("Can't load sh*t captain, no file nor serial?!")
 
     @staticmethod
-    def do_fastload(params):
+    def do_fastload(params):  # TODO: Implement
         if params[0] is not None and params[1] is not None:
-            return "fastloaded..." + params[0]
+            return "fastload not implemented yet..."
 
-        raise ValueError('firmware and serial port arguments cannot be empty')
+        raise ValueError("Can't load sh*t captain, no file nor serial?!")
 
     @staticmethod
     def do_rip(params):
@@ -156,6 +157,10 @@ def main():
                 logger.error("Exiting on error")
         except ValueError, ex:
             logger.error(ex.message)
+        except SerialException, ex:
+            logger.error("Serial: " + ex.message)
+        except OSError, ex:
+            logger.error("OS: " + ex.strerror)
     else:
         parser.print_usage()
 
