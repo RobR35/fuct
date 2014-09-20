@@ -14,13 +14,14 @@ from . import __version__
 
 logger = log.fuct_logger('fuctlog')
 
+
 class CmdHandler:
 
     def __init__(self):
         pass
 
     def lookup_method(self, command):
-        getattr(self, 'do_%s' % command.lower())
+        return getattr(self, 'do_%s' % command.lower())
 
     @staticmethod
     def is_ascii(s):

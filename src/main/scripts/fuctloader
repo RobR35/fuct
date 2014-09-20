@@ -1,4 +1,4 @@
 #!/usr/bin/env python
-import fuct
+from fuct import loader
 
-fuct.start_loader()
+loader.loader()

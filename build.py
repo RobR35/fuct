@@ -12,12 +12,13 @@ description = 'Please visit {0} for more information!'.format(url)
 authors = [Author('Ari Karhu', 'ari@baboonplanet.com')]
 license = 'Apache License, Version 2.0'
 summary = 'Unified commandline loader and logger for FreeEMS.'
-version = '0.9.0-SNAPSHOT'
+version = '0.9.0'
 
 default_task = ['install_dependencies', 'publish']
+
 
 @init
 def set_properties(project):
   project.depends_on("pyserial", ">=2.7")
-  project.depends_on("colorlog", ">=2.0.0")
+  project.depends_on("colorlog[windows]", ">=2.0.0")
 
