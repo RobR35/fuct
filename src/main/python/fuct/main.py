@@ -12,6 +12,7 @@ from . import log
 from . import pages
 from . import __version__
 
+logger = log.fuct_logger('fuctlog')
 
 class CmdHandler:
 
@@ -124,12 +125,13 @@ class CmdHandler:
         raise ValueError('serial port argument cannot be empty')
 
 ###
-### Main
+### Loader
 ###
 
-def main():
+
+def loader():
     parser = argparse.ArgumentParser(
-        prog='fuct',
+        prog='fuctloader',
         description='FUCT - FreeEMS Unified Console Tool, version: %s' % __version__,
         formatter_class=argparse.RawTextHelpFormatter,)
     parser.add_argument('-v', '--version', action='store_true', help='show program version')
@@ -154,7 +156,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print "fuct %s" % __version__
+        print "fuctloader %s" % __version__
     elif args.command is not None:
         try:
             ser = None
@@ -176,8 +178,3 @@ def main():
             logger.error("OS: " + ex.strerror)
     else:
         parser.print_usage()
-
-
-if __name__ == '__main__':
-    logger = log.fuct_logger('fuctlog')
-    main()

@@ -113,7 +113,7 @@ class Device():
         return False
 
     def analyse_device(self):
-        sm_file = open('monitor.fuct', 'w')
+        sm_file = open('monitor.fuctloader', 'w')
         addr = 0xF800
         smdata = bytearray()
         for page in range(0, 8):
