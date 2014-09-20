@@ -3,6 +3,7 @@ import logging
 import os
 import argparse
 import serial
+import textwrap
 from serial.serialutil import SerialException
 
 from . import validator
@@ -18,7 +19,7 @@ class CmdHandler:
         pass
 
     def lookup_method(self, command):
-        return getattr(self, 'do_' + command.lower(), None)
+        getattr(self, 'do_%s' % command.lower())
 
     @staticmethod
     def is_ascii(s):
@@ -43,7 +44,7 @@ class CmdHandler:
                     logger.info("Parsed %d records" % len(records))
                     if records[0].stype[0] == 'S0':
                         header = records[0].data if CmdHandler.is_ascii(records[0].data) else "[binary data]"
-                        logger.info("Header info: %s" % header)
+                        logger.info("Header info: [%s]" % header)
                     else:
                         logger.info("No header...")
                     return True
@@ -122,20 +123,32 @@ class CmdHandler:
 
         raise ValueError('serial port argument cannot be empty')
 
-    @staticmethod
-    def do_unknown(self, rest):
-        raise NotImplementedError('received unknown command')
-
-
+###
 ### Main
-
+###
 
 def main():
-    parser = argparse.ArgumentParser(description='FUCT - FreeEMS Unified Console Tool, version: %s' % __version__)
+    parser = argparse.ArgumentParser(
+        prog='fuct',
+        description='FUCT - FreeEMS Unified Console Tool, version: %s' % __version__,
+        formatter_class=argparse.RawTextHelpFormatter,)
     parser.add_argument('-v', '--version', action='store_true', help='show program version')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug information')
     parser.add_argument('-s', '--serial', nargs='?', help='serialport device (eg. /dev/xxx, COM1)')
-    parser.add_argument('command', nargs='?', help='device, check, load, fastload, rip, erase')
+    parser.add_argument(
+        'command',
+        nargs='?',
+        help=textwrap.dedent('''\
+        command to execute. available commands:
+
+        check      validate S19 firmware file (no device needed)
+        device     poll device for correct device ID and serial monitor
+        load       validate, load and verify firmware file into device
+        fastload   load firmware file into device without any validation
+        rip        rip firmware from device
+        erase      erase device (serial monitor is not erased)
+
+        '''))
     parser.add_argument('firmware', nargs='?', help='location of the S19 firmware file')
 
     args = parser.parse_args()
@@ -149,13 +162,13 @@ def main():
                 logger.setLevel(logging.DEBUG)
             if args.serial is not None:
                 logger.info("Opening port %s" % args.serial)
-                ser = serial.Serial(args.serial, 115200, timeout=0.1, bytesize=8, parity='N', stopbits=1)
+                ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity='N', stopbits=1)
                 logger.debug(ser)
             if CmdHandler().lookup_method(args.command)((ser, args.firmware)):
-                logger.info("All OK")
+                logger.info("Done")
             else:
                 logger.error("Exiting on error")
-        except ValueError, ex:
+        except (AttributeError, ValueError), ex:
             logger.error(ex.message)
         except SerialException, ex:
             logger.error("Serial: " + ex.message)
