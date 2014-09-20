@@ -6,11 +6,7 @@ import serial
 import textwrap
 from serial.serialutil import SerialException
 
-from . import validator
-from . import device
-from . import log
-from . import pages
-from . import __version__
+from . import validator, device, log, pages, __version__, __git__
 
 logger = log.fuct_logger('fuctlog')
 
@@ -157,7 +153,7 @@ def loader():
     args = parser.parse_args()
 
     if args.version:
-        print "fuctloader %s" % __version__
+        print "fuctloader %s (Git: %s)" % (__version__, __git__)
     elif args.command is not None:
         try:
             ser = None

@@ -1,5 +1,6 @@
 
 __author__ = 'ari'
-__version__ = '0.1.0-SNAPSHOT'
+__version__ = '${version}'
+__git__ = '${git}'
 
 
