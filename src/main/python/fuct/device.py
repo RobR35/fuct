@@ -111,7 +111,7 @@ class Device():
                 logger.info("Device is S12 XDP512 (FreeEMS compatible)")
                 return True
             elif ord(resp.data[1]) == 0x31 and ord(resp.data[2]) == 0x02:
-                logger.info("Device is S12 C64 (MS2)")
+                logger.info("Device is S12 C64 (Megasquirt-II/Microsquirt compatible)")
                 return True
 
         logger.error("Device (C: 0x%02x, ID: 0x%02x%02x) is not supported" %
@@ -119,7 +119,9 @@ class Device():
         return False
 
     def analyse_device(self):
-        sm_file = open('monitor.fuctloader', 'w')
+        # Interim serialmonitor ripper solution (should make S19 files)
+        sm_file = open('serialmonitor.dat', 'w')
+        sm_file.write("# Ripped serialmonitor range (F800-FF00)\n# Format: <memory address>:::<hexdata (256 bytes)>\n")
         addr = 0xF800
         smdata = bytearray()
         for page in range(0, 8):
