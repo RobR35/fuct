@@ -76,3 +76,6 @@ To erase the memory pages in the device use the ``erase`` command with serial po
 The memory range used by the firmware is cleaned page by page. The serial monitor itself will remain in the device and
 is not erased.
 
+## License
+
+Copyright (c) 2014 Ari Karhu. See the LICENSE file for license rights and limitations (MIT).

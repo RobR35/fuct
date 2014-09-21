@@ -9,11 +9,11 @@ use_plugin("python.pycharm")
 
 name = "fuct"
 url = "https://github.com/MrOnion/fuct"
-description = "Visit {0} for more information.".format(url)
+description = "Visit %s for more information." % url
 
 authors = [Author("Ari Karhu", "ari@baboonplanet.com")]
-license = "Apache License, Version 2.0"
-summary = "Unified commandline loader and logger for FreeEMS."
+license = "MIT License"
+summary = "Unified commandline tools for FreeEMS"
 
 default_task = ["install_dependencies", "publish"]
 
@@ -26,6 +26,6 @@ def set_properties(project, logger):
     logger.info("Executing git describe")
     project.version = subprocess.check_output(
         ["git", "describe", "--tags", "--always"]).rstrip("\n")
-    project.set_property("git", subprocess.check_output(
+    project.set_property("gitdesc", subprocess.check_output(
         ["git", "describe", "--tags", "--always", "--long", "--dirty"]).rstrip("\n"))
-    project.set_property("dir_dist", "$dir_target/dist/{0}-{1}".format(project.name, project.version))
+    project.set_property("dir_dist", "$dir_target/dist/%s-%s" % (project.name, project.version))
