@@ -24,7 +24,11 @@ class CmdHandler:
         pass
 
     def lookup_method(self, command):
-        return getattr(self, 'do_%s' % command.lower())
+        method = getattr(self, 'do_%s' % command.lower(), None)
+        if callable(method):
+            return method
+        else:
+            raise NotImplementedError('Command "%s" not implemented' % command)
 
     @staticmethod
     def is_ascii(s):
@@ -174,6 +178,8 @@ def loader():
                 logger.info("Done")
             else:
                 logger.error("Exiting on error")
+        except NotImplementedError, ex:
+            logger.error(ex.message)
         except (AttributeError, ValueError), ex:
             logger.error(ex.message)
         except SerialException, ex:
