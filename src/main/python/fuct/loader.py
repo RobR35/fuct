@@ -140,13 +140,13 @@ class CmdHandler:
 def loader():
     parser = argparse.ArgumentParser(
         prog='fuctloader',
-        description='''FUCT - FreeEMS Unified Console Tool, version: %s
+        description='''FUCT - FreeEMS Unified Console Tools, version: %s (Git: %s)
 
   'fuctloader' is a firmware loader application for FreeEMS. With this tool you can check your device info,
   validate S19 files and of course load, verify, rip and erase firmware data. You can also rip the serial
   monitor for further analysis.
 
-  Example: fuctloader -s /dev/ttyUSB0 load testcar1-firmware.S19''' % __version__,
+  Example: fuctloader -s /dev/ttyUSB0 load testcar1-firmware.S19''' % (__version__, __git__),
         formatter_class=argparse.RawTextHelpFormatter,)
     parser.add_argument('-v', '--version', action='store_true', help='show program version')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug information')
@@ -165,7 +165,7 @@ def loader():
         erase      erase device (serial monitor is not erased)
 
         '''))
-    parser.add_argument('firmware', nargs='?', help='location of the S19 firmware file')
+    parser.add_argument('firmware', nargs='?', help='location and name of the S19 firmware file')
 
     args = parser.parse_args()
 
