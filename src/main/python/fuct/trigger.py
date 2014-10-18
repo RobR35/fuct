@@ -52,7 +52,7 @@ def trigger():
                 logger.setLevel(logging.DEBUG)
 
             logger.info("Opening port %s" % args.serial)
-            ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity='O', stopbits=1)
+            ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
             logger.debug(ser)
 
             queue_in = Queue.Queue(0)

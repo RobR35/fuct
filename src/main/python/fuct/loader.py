@@ -178,7 +178,7 @@ def loader():
                 logger.setLevel(logging.DEBUG)
             if args.serial is not None:
                 logger.info("Opening port %s" % args.serial)
-                ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity='N', stopbits=1)
+                ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity=serial.PARITY_NONE, stopbits=1)
                 logger.debug(ser)
             if CmdHandler().lookup_method(args.command)((ser, args.firmware)):
                 logger.info("Done")

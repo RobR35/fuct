@@ -54,7 +54,7 @@ def logger():
                 LOG.setLevel(logging.DEBUG)
 
             LOG.info("Opening port %s" % args.serial)
-            ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity='N', stopbits=1)
+            ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
             LOG.debug(ser)
 
             basename = logname = create_filename(args.prefix, args.path)
