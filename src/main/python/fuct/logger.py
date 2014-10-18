@@ -57,7 +57,7 @@ def logger():
             sizelimit = convert_sizelimit(args.size) if args.size is not None else 128000000
             LOG.info("Setting logfile size to: %d bytes" % sizelimit)
 
-            LOG.info("Start logging...")
+            LOG.info("Start logging... (Ctrl+C to quit)")
             spinner = busy_icon()
             logcounter = 1
             while True:
@@ -94,7 +94,7 @@ def logger():
 
 
 def create_filename(prefix, path):
-    logname = "%s-%s.log" % (prefix if prefix is not None else "log", time.strftime("%Y%m%d-%H%M%S"))
+    logname = "%s-%s.bin" % (prefix if prefix is not None else "log", time.strftime("%Y%m%d-%H%M%S"))
     if path is not None:
         logname = os.path.join(path, logname)
     return logname
