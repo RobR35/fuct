@@ -28,12 +28,19 @@ LOG = log.fuct_logger('fuctlog')
 def logger():
     parser = argparse.ArgumentParser(
         prog='fuctlogger',
-        description='FUCT - FreeEMS Unified Console Tool, version: %s' % __version__,
+        description='''FUCT - FreeEMS Unified Console Tool, version: %s
+
+  'fuctlogger' is a logging tool for FreeEMS. It basically just collects streaming data from the FreeEMS device
+  into a binary logfile. The logfile contains raw data which means that the serial protocol is not parsed. You
+  can set a size limit so the logger will start a new logfile when the limit is exceeded. Also fixed path and
+  filename prefix can be used. A date (ddmmYY-HHMMSS) is added into to the filename automatically.
+
+  Example: fuctlogger -p /home/user/logs -x testcar1 -s 50M /dev/ttyUSB0''' % __version__,
         formatter_class=argparse.RawTextHelpFormatter,)
     parser.add_argument('-v', '--version', action='store_true', help='show program version')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug information')
-    parser.add_argument('-p', '--path', nargs='?', help='path for the logfile (default ./)')
-    parser.add_argument('-x', '--prefix', nargs='?', help='prefix for the logfile name')
+    parser.add_argument('-p', '--path', nargs='?', help='path for the logfile (default: ./)')
+    parser.add_argument('-x', '--prefix', nargs='?', help='prefix for the logfile name (default: log)')
     parser.add_argument('-s', '--size', nargs='?', help='size of single logfile with unit (xxM/xxG) (default 128M)')
     parser.add_argument('serial', nargs='?', help='serialport device (eg. /dev/xxx, COM1)')
 

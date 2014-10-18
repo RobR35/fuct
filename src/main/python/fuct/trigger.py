@@ -29,7 +29,13 @@ logger = log.fuct_logger('fuctlog')
 def trigger():
     parser = argparse.ArgumentParser(
         prog='fucttrigger',
-        description='FUCT - FreeEMS Unified Console Tool, version: %s' % __version__,
+        description='''FUCT - FreeEMS Unified Console Tools, version: %s
+
+  'fucttrigger' is a tool to adjust the decoder trigger angle on a fresh FreeEMS install. You need a timinglight
+  or a similar tool to check the correct alignment. Also make sure you use flat timing tables (ex. 10 deg) so you get
+  a good consistent reading. An initial angle can be used to load it to the device when the application is started.
+
+  Example: fucttrigger -a 180 /dev/ttyUSB0''' % __version__,
         formatter_class=argparse.RawTextHelpFormatter,)
     parser.add_argument('-v', '--version', action='store_true', help='show program version')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug information')
@@ -84,7 +90,7 @@ def trigger():
                                 logger.info("Initial trigger angle: %d deg" % angle_value)
                                 angle = struct.pack('>H', (args.angle * 50))
                                 queue_out.put(Protocol.create_packet(Protocol.FE_CMD_FLASH_WRITE, location=Protocol.FE_LOCATION_TRIGGER, data=angle, use_length=True))
-                            logger.info("(a = +1, z = -1, s = +10, x = -10)")
+                            logger.info("Commands: a = +1, z = -1, s = +10, x = -10)")
                             init = False
                     else:
                         if data[0] == Protocol.FE_CMD_FLASH_WRITE + 1:
