@@ -172,6 +172,7 @@ def loader():
     if args.version:
         print "fuctloader %s (Git: %s)" % (__version__, __git__)
     elif args.command is not None:
+        logger.info("FUCT - fuctloader %s (Git: %s)" % (__version__, __git__))
         try:
             ser = None
             if args.debug:

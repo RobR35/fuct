@@ -49,6 +49,7 @@ def logger():
     if args.version:
         print "fuctlogger %s (Git: %s)" % (__version__, __git__)
     elif args.serial is not None:
+        logger.info("FUCT - fuctlogger %s (Git: %s)" % (__version__, __git__))
         try:
             if args.debug:
                 LOG.setLevel(logging.DEBUG)

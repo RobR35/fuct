@@ -54,10 +54,10 @@ class RxThread(threading.Thread):
                         if payload != 0x191:  # not log packet
                             self.queue_in.put(outbuf)
 
-                        if logger.getEffectiveLevel() == logging.DEBUG:
-                            logger.debug("Size: %d/%d, Checksum: %s/%s", (size, length, checksum1, checksum2))
-                            logger.debug("Flags: %s, Payload ID: %s", (hex(flags), hex(payload)))
-                            logger.debug(''.join(["%02X " % x for x in outbuf]).strip())
+                        #if logger.getEffectiveLevel() == logging.DEBUG:
+                        #    logger.debug("Size: %d/%d, Checksum: %s/%s", (size, length, checksum1, checksum2))
+                        #    logger.debug("Flags: %s, Payload ID: %s", (hex(flags), hex(payload)))
+                        #    logger.debug(''.join(["%02X " % x for x in outbuf]).strip())
 
                     outbuf = bytearray()
 

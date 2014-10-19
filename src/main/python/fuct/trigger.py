@@ -18,6 +18,7 @@ from serial.serialutil import SerialException
 from . import log, __version__, __git__
 from rx import RxThread
 from protocol import Protocol
+import binascii
 
 logger = log.fuct_logger('fuctlog')
 
@@ -35,15 +36,16 @@ def trigger():
         prog='fucttrigger',
         description='''FUCT - FreeEMS Unified Console Tools, version: %s (Git: %s)
 
-  'fucttrigger' is a tool to adjust the decoder trigger angle on a fresh FreeEMS install. You need a timinglight
-  or a similar tool to check the correct alignment. Also make sure you use flat timing tables (ex. 10 deg) so you get
-  a good consistent reading. An initial angle can be used to load it to the device when the application is started.
+  'fucttrigger' is a tool to adjust the decoder trigger offset on a fresh FreeEMS install. You need a timinglight
+  or a similar tool to check the correct alignment. Also make sure you use flat timing tables (ex. 10 deg BTDC) so
+  you get a good consistent reading. An initial offset can be used to load it to the device when the application
+  is started.
 
-  Example: fucttrigger -a 180 /dev/ttyUSB0''' % (__version__, __git__),
+  Example: fucttrigger -o 90 /dev/ttyUSB0''' % (__version__, __git__),
         formatter_class=argparse.RawTextHelpFormatter,)
     parser.add_argument('-v', '--version', action='store_true', help='show program version')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug information')
-    parser.add_argument('-a', '--angle', type=check_angle_arg, nargs='?', help='initial trigger angle in degrees (0-719.98)')
+    parser.add_argument('-o', '--offset', type=check_offset_arg, nargs='?', help='initial trigger offset in degrees ATDC (0-719.98)')
     parser.add_argument('serial', nargs='?', help='serialport device (eg. /dev/xxx, COM1)')
 
     args = parser.parse_args()
@@ -51,6 +53,7 @@ def trigger():
     if args.version:
         print "fucttrigger %s (Git: %s)" % (__version__, __git__)
     elif args.serial is not None:
+        logger.info("FUCT - fucttrigger %s (Git: %s)" % (__version__, __git__))
         try:
             if args.debug:
                 logger.setLevel(logging.DEBUG)
@@ -66,13 +69,15 @@ def trigger():
             p.start()
 
             init = True
-            angle_value = 0  # 1 unit = 0.02 deg
+            offset_value = 0  # 1 unit = 0.02 deg
             queue_out.put(Protocol.create_packet(Protocol.FE_CMD_DECODER))
 
             while True:
                 try:
                     time.sleep(0.2)
                     packet = queue_out.get(False)
+                    if logger.getEffectiveLevel() == logging.DEBUG:
+                        logger.debug("--> %s" % binascii.hexlify(packet))
                     ser.write(packet)
                     ser.flush()
                 except Queue.Empty:
@@ -80,57 +85,58 @@ def trigger():
 
                 try:
                     msg = queue_in.get(False)
+                    if logger.getEffectiveLevel() == logging.DEBUG:
+                        logger.debug("<-- %s" % binascii.hexlify(msg))
                     data = Protocol.decode_packet(msg)
 
                     if init:
                         if data[0] == Protocol.FE_CMD_DECODER + 1:
                             logger.info("Decoder: %s" % data[1])
-                            queue_out.put(Protocol.create_packet(Protocol.FE_CMD_FLASH_READ, location=Protocol.FE_LOCATION_TRIGGER, size=2))
+                            queue_out.put(read_trigger_message(flash=True))
                         if data[0] == Protocol.FE_CMD_FLASH_READ + 1:
-                            angle_value = struct.unpack('>H', data[1])[0]
-                            logger.info("Current trigger angle: %.2f deg" % to_angle(angle_value))
-                            if args.angle is not None:
-                                angle_value = to_raw_angle(args.angle)
-                                logger.info("Initial trigger angle: %.2f deg" % args.angle)
-                                angle = struct.pack('>H', angle_value)
-                                queue_out.put(Protocol.create_packet(Protocol.FE_CMD_FLASH_WRITE, location=Protocol.FE_LOCATION_TRIGGER, data=angle, use_length=True))
-                            logger.info("Type a new value (0-%d) or use predefined commands" % ANGLE_MAX)
-                            logger.info("Commands: a = +1, z = -1, s = +10, x = -10, d = +0.1, c = -0.1)")
+                            offset_value = struct.unpack('>H', data[1])[0]
+                            logger.info("Current trigger angle in flash: %.2f deg" % to_angle(offset_value))
+                            if args.offset is not None:
+                                offset_value = to_raw_angle(args.offset)
+                                logger.info("Initial trigger offset: %.2f deg" % args.offset)
+                                queue_out.put(write_trigger_message(struct.pack('>H', offset_value), flash=True))
+                            logger.info("Type a new value (0-%.2f) or use predefined commands" % ANGLE_MAX)
+                            logger.info("Commands: a => +1, z => -1, s => +10, x => -10, d => +0.1, c => -0.1")
                             init = False
                     else:
                         if data[0] == Protocol.FE_CMD_FLASH_WRITE + 1:
-                            logger.info("Trigger angle: %.2f deg" % to_angle(angle_value))
+                            logger.info("Trigger offset: %.2f deg" % to_angle(offset_value))
 
                 except Queue.Empty:
                     pass
 
                 if not init:
                     line = raw_input('>>> ')
-                    angle_new = angle_value
+                    offset_new = offset_value
                     if line == 'a':
-                        angle_new += ANGLE_FACTOR
+                        offset_new += ANGLE_FACTOR
                     elif line == 'z':
-                        angle_new -= ANGLE_FACTOR
+                        offset_new -= ANGLE_FACTOR
                     elif line == 's':
-                        angle_new += ANGLE_FACTOR * 10
+                        offset_new += ANGLE_FACTOR * 10
                     elif line == 'x':
-                        angle_new -= ANGLE_FACTOR * 10
+                        offset_new -= ANGLE_FACTOR * 10
                     elif line == 'd':
-                        angle_new += ANGLE_FACTOR / 10
+                        offset_new += ANGLE_FACTOR / 10
                     elif line == 'c':
-                        angle_new -= ANGLE_FACTOR / 10
+                        offset_new -= ANGLE_FACTOR / 10
                     elif re.match("^(?=.*\d)\d{1,3}(?:\.\d{1,2})?$", line) is not None:
                         v = float(line)
                         if v >= 0 or v <= ANGLE_MAX:
-                            angle_new = to_raw_angle(v)
+                            offset_new = to_raw_angle(v)
                         else:
-                            logger.error("Invalid angle value, use 0-%d" % ANGLE_MAX)
+                            logger.error("Invalid value, use 0-%.2f" % ANGLE_MAX)
 
-                    if angle_new != angle_value:
-                        angle_value = angle_new
-                        angle = struct.pack('>H', angle_value)
-                        logger.info("Setting value to %d" % angle_new)
-                        queue_out.put(Protocol.create_packet(Protocol.FE_CMD_FLASH_WRITE, location=Protocol.FE_LOCATION_TRIGGER, data=angle, use_length=True))
+                    if offset_new != offset_value:
+                        offset_value = offset_new
+                        if logger.getEffectiveLevel() == logging.DEBUG:
+                            logger.debug("Raw offset value: %d" % offset_new)
+                        queue_out.put(write_trigger_message(struct.pack('>H', offset_value), flash=True))
 
         except KeyboardInterrupt:
             logger.info("logging stopped")
@@ -146,6 +152,21 @@ def trigger():
         parser.print_usage()
 
 
+def write_trigger_message(offset, flash=False):
+    return Protocol.create_packet(
+        Protocol.FE_CMD_RAM_WRITE if flash is False else Protocol.FE_CMD_FLASH_WRITE,
+        location=Protocol.FE_LOCATION_TRIGGER,
+        data=offset,
+        use_length=True)
+
+
+def read_trigger_message(flash=False):
+    return Protocol.create_packet(
+        Protocol.FE_CMD_RAM_READ if flash is False else Protocol.FE_CMD_FLASH_READ,
+        location=Protocol.FE_LOCATION_TRIGGER,
+        size=2)
+
+
 def to_angle(value):
     return float(value) / ANGLE_FACTOR
 
@@ -154,8 +175,8 @@ def to_raw_angle(value):
     return round(float(value) * ANGLE_FACTOR)
 
 
-def check_angle_arg(value):
+def check_offset_arg(value):
     v = float(value)
     if v < 0 or v > ANGLE_MAX:
-        raise argparse.ArgumentTypeError("Value %s is invalid, use 0-%d." % (v, ANGLE_MAX))
+        raise argparse.ArgumentTypeError("Value %s is invalid, use 0-%.2f." % (v, ANGLE_MAX))
     return v
