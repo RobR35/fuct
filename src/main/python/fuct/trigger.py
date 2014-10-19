@@ -19,6 +19,7 @@ from . import log, __version__, __git__
 from rx import RxThread
 from protocol import Protocol
 import binascii
+import sys
 
 logger = log.fuct_logger('fuctlog')
 
@@ -65,8 +66,8 @@ def trigger():
             queue_in = Queue.Queue(0)
             queue_out = Queue.Queue(0)
 
-            p = RxThread(ser, queue_in)
-            p.start()
+            rx = RxThread(ser, queue_in)
+            rx.start()
 
             init = True
             offset_value = 0  # 1 unit = 0.02 deg
@@ -77,7 +78,7 @@ def trigger():
                     time.sleep(0.2)
                     packet = queue_out.get(False)
                     if logger.getEffectiveLevel() == logging.DEBUG:
-                        logger.debug("--> %s" % binascii.hexlify(packet))
+                        logger.debug("--> %s" % binascii.hexlify(packet[1:-2]))
                     ser.write(packet)
                     ser.flush()
                 except Queue.Empty:
@@ -95,13 +96,14 @@ def trigger():
                             queue_out.put(read_trigger_message(flash=True))
                         if data[0] == Protocol.FE_CMD_FLASH_READ + 1:
                             offset_value = struct.unpack('>H', data[1])[0]
-                            logger.info("Current trigger angle in flash: %.2f deg" % to_angle(offset_value))
+                            logger.info("Current trigger offset in flash: %.2f deg" % to_angle(offset_value))
                             if args.offset is not None:
                                 offset_value = to_raw_angle(args.offset)
                                 logger.info("Initial trigger offset: %.2f deg" % args.offset)
                                 queue_out.put(write_trigger_message(struct.pack('>H', offset_value), flash=True))
                             logger.info("Type a new value (0-%.2f) or use predefined commands" % ANGLE_MAX)
-                            logger.info("Commands: a => +1, z => -1, s => +10, x => -10, d => +0.1, c => -0.1")
+                            logger.info("Commands: 'a' => +1, 'z' => -1, 's' => +10, 'x' => -10, 'd' => +0.1, 'c' => -0.1")
+                            logger.info("          'quit' or 'exit' => Exit program")
                             init = False
                     else:
                         if data[0] == Protocol.FE_CMD_FLASH_WRITE + 1:
@@ -131,6 +133,10 @@ def trigger():
                             offset_new = to_raw_angle(v)
                         else:
                             logger.error("Invalid value, use 0-%.2f" % ANGLE_MAX)
+                    elif line == 'exit' or line == 'quit':
+                        rx.stop()
+                        logger.info("Exiting...")
+                        sys.exit(0)
 
                     if offset_new != offset_value:
                         offset_value = offset_new
@@ -139,7 +145,8 @@ def trigger():
                         queue_out.put(write_trigger_message(struct.pack('>H', offset_value), flash=True))
 
         except KeyboardInterrupt:
-            logger.info("logging stopped")
+            rx.stop()
+            logger.info("Exiting...")
         except NotImplementedError, ex:
             logger.error(ex.message)
         except (AttributeError, ValueError), ex:

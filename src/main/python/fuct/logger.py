@@ -86,7 +86,7 @@ def logger():
                 sys.stdout.flush()
                 sys.stdout.write('\b')
         except KeyboardInterrupt:
-            LOG.info("Logging stopped")
+            LOG.info("Logging stopped, exiting...")
             ser.close()
             logfile.close()
         except NotImplementedError, ex:

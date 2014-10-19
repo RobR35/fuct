@@ -17,13 +17,17 @@ class RxThread(threading.Thread):
         super(RxThread, self).__init__()
         self.ser = ser
         self.queue_in = queue_in
+        self.active = True
+
+    def stop(self):
+        self.active = False
 
     def run(self):
         in_packet = False
         in_escape = False
         outbuf = bytearray()
 
-        while True:
+        while self.active:
 
             # Incoming
             buf = self.ser.read(1024)
