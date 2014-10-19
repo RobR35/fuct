@@ -12,6 +12,7 @@ import serial
 import Queue
 import time
 import struct
+import re
 from serial.serialutil import SerialException
 
 from . import log, __version__, __git__
@@ -24,6 +25,9 @@ logger = log.fuct_logger('fuctlog')
 ###
 ### Trigger
 ###
+
+ANGLE_FACTOR = 50.00
+ANGLE_MAX = 719.98
 
 
 def trigger():
@@ -39,7 +43,7 @@ def trigger():
         formatter_class=argparse.RawTextHelpFormatter,)
     parser.add_argument('-v', '--version', action='store_true', help='show program version')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug information')
-    parser.add_argument('-a', '--angle', type=int, nargs='?', help='initial trigger angle in degrees (0-359)')
+    parser.add_argument('-a', '--angle', type=check_angle_arg, nargs='?', help='initial trigger angle in degrees (0-719.98)')
     parser.add_argument('serial', nargs='?', help='serialport device (eg. /dev/xxx, COM1)')
 
     args = parser.parse_args()
@@ -62,7 +66,7 @@ def trigger():
             p.start()
 
             init = True
-            angle_value = 0
+            angle_value = 0  # 1 unit = 0.02 deg
             queue_out.put(Protocol.create_packet(Protocol.FE_CMD_DECODER))
 
             while True:
@@ -83,18 +87,19 @@ def trigger():
                             logger.info("Decoder: %s" % data[1])
                             queue_out.put(Protocol.create_packet(Protocol.FE_CMD_FLASH_READ, location=Protocol.FE_LOCATION_TRIGGER, size=2))
                         if data[0] == Protocol.FE_CMD_FLASH_READ + 1:
-                            angle_value = struct.unpack('>H', data[1])[0] / 50
-                            logger.info("Current trigger angle: %d deg" % angle_value)
+                            angle_value = struct.unpack('>H', data[1])[0]
+                            logger.info("Current trigger angle: %.2f deg" % to_angle(angle_value))
                             if args.angle is not None:
-                                angle_value = args.angle
-                                logger.info("Initial trigger angle: %d deg" % angle_value)
-                                angle = struct.pack('>H', (args.angle * 50))
+                                angle_value = to_raw_angle(args.angle)
+                                logger.info("Initial trigger angle: %.2f deg" % args.angle)
+                                angle = struct.pack('>H', angle_value)
                                 queue_out.put(Protocol.create_packet(Protocol.FE_CMD_FLASH_WRITE, location=Protocol.FE_LOCATION_TRIGGER, data=angle, use_length=True))
-                            logger.info("Commands: a = +1, z = -1, s = +10, x = -10)")
+                            logger.info("Type a new value (0-%d) or use predefined commands" % ANGLE_MAX)
+                            logger.info("Commands: a = +1, z = -1, s = +10, x = -10, d = +0.1, c = -0.1)")
                             init = False
                     else:
                         if data[0] == Protocol.FE_CMD_FLASH_WRITE + 1:
-                            logger.info("Trigger angle: %d deg" % angle_value)
+                            logger.info("Trigger angle: %.2f deg" % to_angle(angle_value))
 
                 except Queue.Empty:
                     pass
@@ -103,17 +108,28 @@ def trigger():
                     line = raw_input('>>> ')
                     angle_new = angle_value
                     if line == 'a':
-                        angle_new += 1
+                        angle_new += ANGLE_FACTOR
                     elif line == 'z':
-                        angle_new -= 1
+                        angle_new -= ANGLE_FACTOR
                     elif line == 's':
-                        angle_new += 10
+                        angle_new += ANGLE_FACTOR * 10
                     elif line == 'x':
-                        angle_new -= 10
+                        angle_new -= ANGLE_FACTOR * 10
+                    elif line == 'd':
+                        angle_new += ANGLE_FACTOR / 10
+                    elif line == 'c':
+                        angle_new -= ANGLE_FACTOR / 10
+                    elif re.match("^(?=.*\d)\d{1,3}(?:\.\d{1,2})?$", line) is not None:
+                        v = float(line)
+                        if v >= 0 or v <= ANGLE_MAX:
+                            angle_new = to_raw_angle(v)
+                        else:
+                            logger.error("Invalid angle value, use 0-%d" % ANGLE_MAX)
 
                     if angle_new != angle_value:
                         angle_value = angle_new
-                        angle = struct.pack('>H', (angle_value * 50))
+                        angle = struct.pack('>H', angle_value)
+                        logger.info("Setting value to %d" % angle_new)
                         queue_out.put(Protocol.create_packet(Protocol.FE_CMD_FLASH_WRITE, location=Protocol.FE_LOCATION_TRIGGER, data=angle, use_length=True))
 
         except KeyboardInterrupt:
@@ -130,3 +146,16 @@ def trigger():
         parser.print_usage()
 
 
+def to_angle(value):
+    return float(value) / ANGLE_FACTOR
+
+
+def to_raw_angle(value):
+    return round(float(value) * ANGLE_FACTOR)
+
+
+def check_angle_arg(value):
+    v = float(value)
+    if v < 0 or v > ANGLE_MAX:
+        raise argparse.ArgumentTypeError("Value %s is invalid, use 0-%d." % (v, ANGLE_MAX))
+    return v
