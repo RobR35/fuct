@@ -8,15 +8,17 @@ __author__ = 'ari'
 
 import threading
 import logging
+import Queue
 
 logger = logging.getLogger('fuctlog')
 
 
 class RxThread(threading.Thread):
-    def __init__(self, ser, queue_in):
+    def __init__(self, ser, queue_in, queue_log):
         super(RxThread, self).__init__()
         self.ser = ser
         self.queue_in = queue_in
+        self.queue_log = queue_log
         self.active = True
 
     def stop(self):
@@ -55,13 +57,13 @@ class RxThread(threading.Thread):
                     # Check checksum
                     checksum2 = sum(outbuf) & 0xff
                     if (size == length + 5) or (checksum1 == checksum2):
-                        if payload != 0x191:  # not log packet
+                        if payload == 0x191:  # log packet
+                            try:
+                                self.queue_log.put(outbuf[5:], False)
+                            except Queue.Full:
+                                pass
+                        else:
                             self.queue_in.put(outbuf)
-
-                        #if logger.getEffectiveLevel() == logging.DEBUG:
-                        #    logger.debug("Size: %d/%d, Checksum: %s/%s", (size, length, checksum1, checksum2))
-                        #    logger.debug("Flags: %s, Payload ID: %s", (hex(flags), hex(payload)))
-                        #    logger.debug(''.join(["%02X " % x for x in outbuf]).strip())
 
                     outbuf = bytearray()
 

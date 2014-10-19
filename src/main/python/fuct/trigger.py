@@ -30,7 +30,7 @@ logger = log.fuct_logger('fuctlog')
 
 ANGLE_FACTOR = 50.00
 ANGLE_MAX = 719.98
-
+QUEUE_SIZE_LOG = 50
 
 def trigger():
     parser = argparse.ArgumentParser(
@@ -65,8 +65,9 @@ def trigger():
 
             queue_in = Queue.Queue(0)
             queue_out = Queue.Queue(0)
+            queue_log = Queue.Queue(QUEUE_SIZE_LOG)
 
-            rx = RxThread(ser, queue_in)
+            rx = RxThread(ser, queue_in, queue_log)
             rx.start()
 
             init = True
@@ -113,6 +114,13 @@ def trigger():
                     pass
 
                 if not init:
+                    log_rows = []
+                    for x in range(0, QUEUE_SIZE_LOG):
+                        log_rows.append(queue_log.get(x))
+                    ign = get_timing_values(log_rows)
+                    if ign[0] != ign[1]:
+                        logger.warning("Ignition advance is not steady, travels between %.2f <-> %.2f deg" % ign)
+
                     line = raw_input('>>> ')
                     offset_new = offset_value
                     if line == 'a':
@@ -133,6 +141,8 @@ def trigger():
                             offset_new = to_raw_angle(v)
                         else:
                             logger.error("Invalid value, use 0-%.2f" % ANGLE_MAX)
+                    elif line == '':
+                        logger.info("Advance: %.2f deg, Trigger offset: %.2f" % (ign[0], to_angle(offset_value)))
                     elif line == 'exit' or line == 'quit':
                         rx.stop()
                         logger.info("Exiting...")
@@ -157,6 +167,13 @@ def trigger():
             logger.error("OS: " + ex.strerror)
     else:
         parser.print_usage()
+
+
+def get_timing_values(log_rows):
+    values = []
+    for row in log_rows:
+        values.append(struct.unpack('>H', row[54:56]))
+    return to_angle(min(values)[0]), to_angle(max(values)[0])
 
 
 def write_trigger_message(offset, flash=False):
