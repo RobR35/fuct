@@ -55,7 +55,8 @@ class CmdHandler:
                         header = records[0].data if CmdHandler.is_ascii(records[0].data) else "[binary data]"
                         logger.info("Header info: [%s]" % header)
                     else:
-                        logger.info("No header...")
+                        logger.warning("No header...")
+                    logger.info("File OK")
                     return True
                 else:
                     return False
@@ -76,7 +77,7 @@ class CmdHandler:
         raise ValueError('serial port argument cannot be empty')
 
     @staticmethod
-    def do_load(params):
+    def do_load(params, verify=True):
         if params[0] is not None and params[1] is not None:
             logger.info("Checking firmware file...")
             records = validator.verify_firmware(params[1])
@@ -95,8 +96,8 @@ class CmdHandler:
 
             last_page = None
             for page in pagelist:
-                logger.info("%d bytes to %02x @ %04x" % (len(page.data), page.page, page.address))
-                dev.erase_and_write(page, erase=False if page.page == last_page else True)
+                logger.info("%6d bytes to 0x%02x @ 0x%04x" % (len(page.data), page.page, page.address))
+                dev.erase_and_write(page, erase=False if page.page == last_page else True, verify=verify)
                 last_page = page.page
 
             return True
@@ -104,11 +105,8 @@ class CmdHandler:
         raise ValueError("Can't load sh*t captain, no file nor serial?!")
 
     @staticmethod
-    def do_fastload(params):  # TODO: Implement
-        if params[0] is not None and params[1] is not None:
-            return "fastload not implemented yet..."
-
-        raise ValueError("Can't load sh*t captain, no file nor serial?!")
+    def do_fastload(params):
+        CmdHandler.do_load(params, False)
 
     @staticmethod
     def do_rip(params):
@@ -182,7 +180,7 @@ def loader():
                 ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity=serial.PARITY_NONE, stopbits=1)
                 logger.debug(ser)
             if CmdHandler().lookup_method(args.command)((ser, args.firmware)):
-                logger.info("Done")
+                logger.info("Exiting...")
             else:
                 logger.error("Exiting on error")
         except NotImplementedError, ex:

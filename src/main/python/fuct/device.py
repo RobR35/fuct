@@ -154,10 +154,10 @@ class Device():
 
     def erase_and_write(self, mempage, erase=True, verify=True):
         if mempage.address < 0x8000 or mempage.address >= 0xC000:
-            raise ValueError('Address %d is out of range for page %d' % (mempage.address, mempage.page))
+            raise ValueError('Address 0x%04x is out of range for page 0x%02x' % (mempage.address, mempage.page))
 
         if len(mempage.data) > 0xC000 - mempage.address:
-            raise ValueError('Invalid amount of data (%d bytes), will overflow page %d @ %d' %
+            raise ValueError('Invalid amount of data (%d bytes), will overflow page 0x%02x @ 0x%04x' %
                              (len(mempage.data), mempage.page, mempage.address))
 
         if erase:
@@ -174,25 +174,28 @@ class Device():
             start_block += self.BLOCK_SIZE
 
             self.__write_block(start_addr, block_data)
+            sys.stdout.write('.')
+            sys.stdout.flush()
 
             if verify:  # TODO: implement verification
-                pass
+                read_back = self.__read_block(start_addr, self.BLOCK_SIZE - 1)
+                if block_data != read_back.data:
+                    raise ValueError('Verification failed @ 0x%04x' % start_addr)
 
             start_addr += self.BLOCK_SIZE
+        sys.stdout.write("\r")
+        sys.stdout.flush()
 
         if trailing > 0:  # TODO: add trailing write to for loop and verify
             block_data = mempage.data[-trailing:]
             self.__write_block(start_addr, block_data)
 
     def rip_and_save_pages(self, filepath, start, end):
-        total = end - start
         last = end + 1
-        counter = 0
         for page in xrange(start, last):
             logger.info("16k page @ 0x%02x" % page)
             self.set_page(page)
             data = self.read_page()
-            counter += 1
         logging.info("Done")
 
         # TODO: implement file save
