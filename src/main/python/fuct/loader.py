@@ -41,7 +41,7 @@ class CmdHandler:
         if dev.check_device:
             return dev
 
-        raise ValueError('Device problem')
+        raise ValueError("Device failed verification, won't proceed")
 
     @staticmethod
     def do_check(params):

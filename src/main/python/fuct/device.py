@@ -104,19 +104,34 @@ class Device():
     # Highlevel commands
 
     @property
-    def check_device(self):  # TODO: maybe return some device info
+    def check_device(self):
         resp = self.device_info()
-        if ord(resp.data[0]) == self.DEVICE_INFO_CONSTANT:
-            if ord(resp.data[1]) == 0xC4 and ord(resp.data[2]) == 0x10:  # TODO: check more device ids
-                logger.info("Device is S12 XDP512 (FreeEMS compatible)")
-                return True
-            elif ord(resp.data[1]) == 0x31 and ord(resp.data[2]) == 0x02:
-                logger.info("Device is S12 C64 (Megasquirt-II/Microsquirt compatible)")
-                return True
-
-        logger.error("Device (C: 0x%02x, ID: 0x%02x%02x) is not supported" %
-                     (ord(resp.data[0]), ord(resp.data[1]), ord(resp.data[2])))
-        return False
+        if len(resp.data) == 3:
+            cid = ord(resp.data[0])
+            if cid == self.DEVICE_INFO_CONSTANT:
+                device_id = unpack_from('>H', resp.data, 1)[0]
+                logger.debug("Device ID: 0x%04x" % device_id)
+                device = self.__parse_device_info(device_id)
+                if device[0] == 0x0C:
+                    logger.info("Device is S12X/XE family")
+                    if device[1] == 0x04 and device[2] == 1 and 0 <= device[3] <= 2:
+                        logger.info("Device looks FreeEMS compatible :)")
+                        return True
+                    elif 1 >= device[1] >= 0 == device[2]:
+                        logger.warn("Device looks FreeEMS compatible, but with wrong maskset :/")
+                    elif device[1] == 0x0C and (device[2] == 8 or device[2] == 9) and 0 <= device[3] <= 2:
+                        logger.warn("Device looks XEP100 (Megasquirt-III?)")
+                    else:
+                        logger.warn("Device is not FreeEMS compatible :(")
+                elif device[0] == 0x03:
+                    logger.warn("Device is S12C family (Megasquirt-II/Microsquirt?)")
+                else:
+                    logger.error("Device is unknown family")
+                return False
+            else:
+                raise ValueError("Invalid device info constant (0x%02x), should be 0x%02x" % (cid, self.DEVICE_INFO_CONSTANT))
+        else:
+            raise ValueError("Invalid device info size (%d bytes), should be 3 bytes" % len(resp))
 
     def analyse_device(self):
         # Interim serialmonitor ripper solution (should make S19 files)
@@ -355,3 +370,16 @@ class Device():
                 raise ValueError('Invalid response (RC: 0x%02x, SC: 0x%02x)' % (rc, sc))
 
         raise ValueError('Invalid response (no prompt)')
+
+    # Helpers
+
+    @staticmethod
+    def __parse_device_info(device_id):
+        """
+        The coding is as follows and is converted to a tuple:
+        Bit 15-12: Major family identifier
+        Bit 11-6: Minor family identifier
+        Bit 5-4: Major mask set revision number including FAB transfers
+        Bit 3-0: Minor — non full — mask set revision
+        """
+        return (device_id >> 12), (device_id >> 8 & 0x0F), (device_id >> 4 & 0x0F), (device_id & 0x0F)
