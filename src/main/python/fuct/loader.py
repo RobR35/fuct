@@ -36,6 +36,7 @@ class CmdHandler:
 
     @staticmethod
     def get_device(port):
+        logger.info("Checking device...")
         dev = device.Device(port)
         dev.reinit()
         if dev.check_device:
@@ -68,9 +69,8 @@ class CmdHandler:
     @staticmethod
     def do_device(params):
         if params[0] is not None:
-            logger.info("Checking device...")
             dev = CmdHandler.get_device(params[0])
-            dev.analyse_device()
+            dev.analyse_device(rip=True)
 
             return True
 

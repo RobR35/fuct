@@ -133,27 +133,28 @@ class Device():
         else:
             raise ValueError("Invalid device info size (%d bytes), should be 3 bytes" % len(resp))
 
-    def analyse_device(self):
-        # Interim serialmonitor ripper solution (should make S19 files)
-        sm_file = open('serialmonitor.dat', 'w')
-        sm_file.write("# Ripped serialmonitor range (F800-FF00)\n# Format: <memory address>:::<hexdata (256 bytes)>\n")
-        addr = 0xF800
+    def analyse_device(self, rip=False):
+        # TODO: Interim serialmonitor ripper solution (should make S19 files)
+        if rip:
+            sm_file = open('serialmonitor.dat', 'w')
+            sm_file.write("# Ripped serialmonitor range (F800-FF00)\n# Format: <memory address>:::<hexdata (256 bytes)>\n")
         smdata = bytearray()
-        for page in range(0, 8):
+        for addr in range(0xF800, 0x10000, 256):
             resp = self.__read_block(addr, 0xFF)
             smdata += resp.data
-            sm_file.write("%04x:::%s\n" % (addr, binascii.hexlify(resp.data)))
-            addr += 256
-        sm_file.close()
+            if rip:
+                sm_file.write("%04x:::%s\n" % (addr, binascii.hexlify(resp.data)))
+        if rip:
+            sm_file.close()
 
         if len(smdata) != 2048:
             raise ValueError('Invalid SM size (%d bytes), should be 2k' % len(smdata))
 
         m = hashlib.md5()
         m.update(smdata)
-        hash = binascii.hexlify(m.digest())
-        logger.debug('SM MD5: %s' % hash)
-        info = self.SM_VERSIONS.get(hash)
+        sm_hash = binascii.hexlify(m.digest())
+        logger.debug('SM MD5: %s' % sm_hash)
+        info = self.SM_VERSIONS.get(sm_hash)
         if info is not None:
             logger.info('SM Identified as: %s' % info)
         else:
