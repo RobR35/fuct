@@ -195,6 +195,9 @@ class Device():
                 read_back = self.__read_block(start_addr, self.BLOCK_SIZE - 1)
                 if block_data != read_back.data:
                     raise ValueError('Verification failed @ 0x%04x' % start_addr)
+                else:
+                    sys.stdout.write('\b#')
+                    sys.stdout.flush()
 
             start_addr += self.BLOCK_SIZE
         sys.stdout.write("\r")
