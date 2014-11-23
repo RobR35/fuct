@@ -159,11 +159,9 @@ class Device():
         else:
             logger.warning('SM is not recognized, use debug mode to get more info')
 
-        if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.debug('SM Device ID: 0x%02x%02x' % (smdata[self.SM_DEVICE_IDX], smdata[self.SM_DEVICE_IDX + 1]))
-            logger.debug('SM Date: %02x/%02x/%02x%02x' %
-                        (smdata[self.SM_MONTH_IDX], smdata[self.SM_DAY_IDX], smdata[self.SM_YEAR_IDX], smdata[self.SM_YEAR_IDX + 1]))
-            logger.debug('SM Version: %x.%x' % (smdata[self.SM_VERSION_IDX], smdata[self.SM_VERSION_IDX + 1]))
+        logger.debug('SM Device ID: 0x%02x%02x' % (smdata[self.SM_DEVICE_IDX], smdata[self.SM_DEVICE_IDX + 1]))
+        logger.debug('SM Date: %02x/%02x/%02x%02x' % (smdata[self.SM_MONTH_IDX], smdata[self.SM_DAY_IDX], smdata[self.SM_YEAR_IDX], smdata[self.SM_YEAR_IDX + 1]))
+        logger.debug('SM Version: %x.%x' % (smdata[self.SM_VERSION_IDX], smdata[self.SM_VERSION_IDX + 1]))
 
         return True
 
@@ -292,12 +290,10 @@ class Device():
 
     def __write_command(self, cmd, args=None):
         self.ser.flushInput()
-        if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.debug("--> 0x%02x" % cmd)
+        logger.debug("--> 0x%02x" % cmd)
         self.ser.write(chr(cmd))
         if args is not None:
-            if logger.getEffectiveLevel() == logging.DEBUG:
-                logger.debug("--> %s" % binascii.hexlify(args))
+            logger.debug("--> %s" % binascii.hexlify(args))
             self.ser.write(args)
 
     def __write_byte(self, addr, byte):
@@ -335,7 +331,7 @@ class Device():
         sleep(to_sleep / 1000)
 
         data = self.ser.read(total_bytes)
-        if logger.getEffectiveLevel() == logging.DEBUG and len(data) > 0:
+        if len(data) > 0:
             logger.debug("<-- %s" % binascii.hexlify(data))
 
         return data

@@ -78,8 +78,7 @@ def trigger():
                 try:
                     time.sleep(0.2)
                     packet = queue_out.get(False)
-                    if logger.getEffectiveLevel() == logging.DEBUG:
-                        logger.debug("--> %s" % binascii.hexlify(packet[1:-2]))
+                    logger.debug("--> %s" % binascii.hexlify(packet[1:-2]))
                     ser.write(packet)
                     ser.flush()
                 except Queue.Empty:
@@ -87,8 +86,7 @@ def trigger():
 
                 try:
                     msg = queue_in.get(False)
-                    if logger.getEffectiveLevel() == logging.DEBUG:
-                        logger.debug("<-- %s" % binascii.hexlify(msg))
+                    logger.debug("<-- %s" % binascii.hexlify(msg))
                     data = Protocol.decode_packet(msg)
 
                     if init:
@@ -150,8 +148,7 @@ def trigger():
 
                     if offset_new != offset_value:
                         offset_value = offset_new
-                        if logger.getEffectiveLevel() == logging.DEBUG:
-                            logger.debug("Raw offset value: %d" % offset_new)
+                        logger.debug("Raw offset value: %d" % offset_new)
                         queue_out.put(write_trigger_message(struct.pack('>H', offset_value), flash=True))
 
         except KeyboardInterrupt:

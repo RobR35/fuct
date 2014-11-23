@@ -21,11 +21,11 @@ def verify_firmware(filepath):
         logger.info("S19 file contains " + str(lf_count) + " lines (Unix)")
     elif lf_count == 0 and cr_count > 0:
         logger.info("S19 file contains " + str(lf_count) + " lines (old Macintosh)")
-    elif cr_count > 0 and lf_count == cr_count:
+    elif 0 < cr_count == lf_count:
         logger.info("S19 file contains " + str(lf_count) + " lines (Windows)")
-    elif lf_count > 0 and cr_count > 0 and lf_count != cr_count:
+    elif 0 < lf_count != 0 < cr_count:
         logger.warning("S19 file contains mixed EOL characters?!")
-    elif lf_count == 0 and cr_count == 0:
+    elif lf_count == cr_count == 0:
         logger.warning("S19 file contains no EOL chatacters?!")
 
     records = []
