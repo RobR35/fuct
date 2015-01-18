@@ -38,9 +38,11 @@ class CmdHandler:
     def get_device(port):
         logger.info("Checking device...")
         dev = device.Device(port)
-        dev.reinit()
-        if dev.check_device:
-            return dev
+        if dev.reinit() is not None:
+            if dev.check_device:
+                return dev
+        else:
+            logger.error("Reinitializing device failed.")
 
         raise ValueError("Device failed verification, won't proceed")
 
@@ -107,6 +109,7 @@ class CmdHandler:
     @staticmethod
     def do_fastload(params):
         CmdHandler.do_load(params, False)
+        return True
 
     @staticmethod
     def do_rip(params):

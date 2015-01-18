@@ -12,6 +12,7 @@ import binascii
 import hashlib
 from time import sleep
 from struct import pack, unpack_from
+from serial import SerialTimeoutException
 
 logger = logging.getLogger('fuctlog')
 
@@ -23,7 +24,10 @@ class SMResponse():
         self.data = data[:]  # Copy data
 
     def __str__(self):
-        return "SM response %d, status %d, data %d bytes" % (self.response_code, self.status_code, len(self.data))
+        return "SM response code 0x%02x, status code 0x%02x, data %d bytes" % \
+               (self.response_code if self.response_code is not None else 0,
+                self.status_code if self.status_code is not None else 0,
+                len(self.data))
 
 
 class Device():
@@ -263,22 +267,24 @@ class Device():
     # Lowlevel commands  TODO: move to privates?
 
     def reset(self):
-        self.__write_command(self.CMD_RESET)
-        rdata = self.__get_data_after_wait(5, 2)
-        if len(rdata) <= 1:
-            return SMResponse(None, None, rdata)
+        if self.__write_command(self.CMD_RESET) is not None:
+            rdata = self.__get_data_after_wait(5, 2)
+            if len(rdata) <= 1:
+                return SMResponse(None, None, rdata)
+        return None
 
     def open_comm(self):
-        self.__write_command(self.SM_OPEN)
-        rdata = self.__get_data_after_wait(4)
-        if len(rdata) == 3:
-            return self.__check_open_response(rdata)
-        elif len(rdata) == 4:
-            return self.__check_open_response(rdata, 1)
+        if self.__write_command(self.SM_OPEN) is not None:
+            rdata = self.__get_data_after_wait(4)
+            if self.__check_open_response(rdata, 1 if len(rdata) == 4 else 0) is not None:
+                return True
+        return None
 
     def reinit(self):
-        self.reset()
-        return self.open_comm()
+        if self.reset() is not None:
+            if self.open_comm() is not None:
+                return True
+        return None
 
     def device_info(self):
         return self.__write_standard(6, self.CMD_DEVICE_INFO)
@@ -293,12 +299,25 @@ class Device():
         return pack('>HB', int(addr), data)
 
     def __write_command(self, cmd, args=None):
-        self.ser.flushInput()
-        logger.debug("--> 0x%02x" % cmd)
-        self.ser.write(chr(cmd))
-        if args is not None:
-            logger.debug("--> %s" % binascii.hexlify(args))
-            self.ser.write(args)
+        try:
+            self.ser.flushInput()
+            logger.debug("--> 0x%02x" % cmd)
+            cmd_bytes = self.ser.write(chr(cmd))
+            if cmd_bytes > 0:
+                if args is not None:
+                    logger.debug("--> %s" % binascii.hexlify(args))
+                    arg_bytes = self.ser.write(args)
+                    if arg_bytes > 0:
+                        return cmd_bytes + arg_bytes
+                    else:
+                        logger.error("Sending command arguments failed (0 bytes written).")
+                        return None
+                return cmd_bytes
+            else:
+                logger.error("Sending command failed (0 bytes written).")
+        except SerialTimeoutException:
+            logger.error("Serial timeout occured when sending command. Check port connection.")
+        return None
 
     def __write_byte(self, addr, byte):
         args = self.__get_addr_data(addr, byte)
@@ -309,67 +328,66 @@ class Device():
 
     def __write_block(self, addr, data):
         if len(data) > self.BLOCK_SIZE:
-            raise ValueError("Block has %d bytes, needs to be 256 bytes or less" % len(data))
+            logger.error("Block has %d bytes, needs to be 256 bytes or less" % len(data))
+            return None
 
         args = self.__get_addr_data(addr, len(data) - 1)
         args += data
 
-        return self.__write_standard(3, self.CMD_WRITE_BLOCK, -16, args)
+        return self.__write_standard(3, self.CMD_WRITE_BLOCK, 0, args)  # wait -16 ms
 
-    def __write_standard(self, resp_length, command, extra_sleep=0, args=None):
+    def __write_standard(self, resp_length, command, wait_ms=0, args=None):
         if resp_length < 3:
-            raise ValueError('Response for command %d must have at least 3 bytes' % command)
+            logger.error('Response for command %d must have at least 3 bytes' % command)
+            return None
 
-        self.__write_command(command, args)
+        if self.__write_command(command, args) is not None:
+            offset = resp_length - 3
+            sent_bytes = 1 if args is None else len(args) + 1
+            total_bytes = sent_bytes + resp_length
+            rdata = self.__get_data_after_wait(total_bytes, wait_ms)
 
-        offset = resp_length - 3
-        sent_bytes = 1 if args is None else len(args) + 1
-        total_bytes = sent_bytes + resp_length
-        rdata = self.__get_data_after_wait(total_bytes, extra_sleep)
+            return self.__check_valid_response(rdata, offset if len(rdata) == resp_length else 0)
+        return None
 
-        return self.__check_valid_response(rdata, offset if len(rdata) == resp_length else 0)
+    def __get_data_after_wait(self, total_bytes, wait_ms=0):
+        if total_bytes <= 0:
+            logger.warning("Requested total bytes of response is zero or less.")
 
-    def __get_data_after_wait(self, total_bytes, extra_millis=0):
-        pre_sleep = float(total_bytes * self.ns_per_byte / 1000000) + extra_millis
-        to_sleep = pre_sleep if pre_sleep > 1 else 1
-        sleep(to_sleep / 1000)
+        # Sleep at least 1 ms before reading. Remember sleep operation is OS specific and cannot be guaranteed
+        # to be accurate.
+        pre_sleep = float(total_bytes * self.ns_per_byte / 1000000) + wait_ms
+        logger.debug("~ %d ms" % pre_sleep)
+        sleep(pre_sleep / 1000 if pre_sleep > 1 else 1)
 
         data = self.ser.read(total_bytes)
-        if len(data) > 0:
-            logger.debug("<-- %s" % binascii.hexlify(data))
-
+        logger.debug("<-- %s" % binascii.hexlify(data))
         return data
 
     def __check_open_response(self, data, offset=0):
         if len(data) < 3:
-            raise ValueError('Invalid open response (too few bytes)')
+            logger.error('Invalid open response (too few bytes)')
+            return None
 
-        if ord(data[offset + 2]) == self.SM_PROMPT:
-            rc = ord(data[offset])
-            sc = ord(data[offset + 1])
-            if rc == self.RC_NO_ERROR and sc == self.SC_COLD_RESET_EXECUTED:
-                return SMResponse(self.RC_NO_ERROR, self.SC_COLD_RESET_EXECUTED, data)
-            elif rc == self.RC_NOT_RECOGNISED and sc == self.SC_MONITOR_ACTIVE:
-                return SMResponse(self.RC_NOT_RECOGNISED, self.SC_MONITOR_ACTIVE, data)
-            raise ValueError('Invalid open response (RC: 0x%02x, SC: 0x%02x)' % (rc, sc))
+        resp = tuple([ord(x) for x in data[offset:offset + 3]])
+        if resp == (self.RC_NO_ERROR, self.SC_COLD_RESET_EXECUTED, self.SM_PROMPT) or \
+                resp == (self.RC_NOT_RECOGNISED, self.SC_MONITOR_ACTIVE, self.SM_PROMPT):
+            return SMResponse(resp[0], resp[1], data)
 
-        raise ValueError('Invalid open response (no prompt), is device in load/SM mode?')
+        logger.error('Invalid open response, is device in load/SM mode?')
+        return None
 
     def __check_valid_response(self, data, offset):
         if len(data) < offset + 3:
-            raise ValueError('Invalid response (too few bytes)')
+            logger.error('Invalid response (too few bytes)')
+            return None
 
-        if ord(data[offset + 2]) == self.SM_PROMPT:
-            rc = ord(data[offset])
-            if rc == self.RC_NOT_RECOGNISED:
-                raise ValueError('Invalid response (unrecognized command 0x%02x)' % rc)
-            elif rc == self.RC_NO_ERROR:
-                sc = ord(data[offset + 1])
-                if sc == self.SC_MONITOR_ACTIVE:
-                    return SMResponse(rc, sc, data[:-3])
-                raise ValueError('Invalid response (RC: 0x%02x, SC: 0x%02x)' % (rc, sc))
+        resp = tuple([ord(x) for x in data[offset:offset + 3]])
+        if resp == (self.RC_NO_ERROR, self.SC_MONITOR_ACTIVE, self.SM_PROMPT):
+            return SMResponse(resp[0], resp[1], data[:-3])
 
-        raise ValueError('Invalid response (no prompt)')
+        logger.error('Invalid response (no prompt or unrecognized command)')
+        return None
 
     # Helpers
 
