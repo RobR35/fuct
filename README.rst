@@ -7,7 +7,7 @@ FUCT - FreeEMS Unified Console Tools
 fuctloader
     This tool lets you operate the firmware (S19) files. It is mostly used to load a new file into the device using the dedicated serial monitor.
 
-    :Features:
+    Features:
         * Check device for correct MCU and serial monitor
         * Validate S19 firmware file
         * Load S19 firmware file with or without verification
@@ -17,7 +17,7 @@ fuctloader
 fuctlogger
     This tool can be used to collect data from the device for further analysis. When the device is in run mode it streams data into the serial port.
 
-    :Features:
+    Features:
         * Saves data from the device into binary logfiles (can be used with OLV/ULV log viewer apps)
         * Size limit to split into multiple files
         * Prefix option to name logfiles accordingly
@@ -27,7 +27,7 @@ fucttrigger
 
     **The trigger tool is considered experimental. Use at your own risk.**
 
-    :Features:
+    Features:
         * Set the initial firmware trigger angle into flash
         * Adjust the trigger angle on-the-fly (Flash only, RAM not available yet)
         * Shortcut keys for 0.1 and 1.0 deg steps
