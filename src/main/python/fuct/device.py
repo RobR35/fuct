@@ -264,7 +264,7 @@ class Device():
     def set_page(self, page):
         self.__write_byte(self.SM_PPAGE, page)
 
-    # Lowlevel commands  TODO: move to privates?
+    # Lowlevel commands  FIXME: move to privates?
 
     def reset(self):
         if self.__write_command(self.CMD_RESET) is not None:
@@ -347,7 +347,7 @@ class Device():
             total_bytes = sent_bytes + resp_length
             rdata = self.__get_data_after_wait(total_bytes, wait_ms)
 
-            return self.__check_valid_response(rdata, offset if len(rdata) == resp_length else 0)
+            return self.__check_response(rdata, offset if len(rdata) == resp_length else 0)
         return None
 
     def __get_data_after_wait(self, total_bytes, wait_ms=0):
@@ -377,7 +377,7 @@ class Device():
         logger.error('Invalid open response, is device in load/SM mode?')
         return None
 
-    def __check_valid_response(self, data, offset):
+    def __check_response(self, data, offset):
         if len(data) < offset + 3:
             logger.error('Invalid response (too few bytes)')
             return None
