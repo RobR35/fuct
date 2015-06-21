@@ -103,7 +103,7 @@ class Device():
 
     def __init__(self, ser):
         self.ser = ser
-        self.ns_per_byte = 86805
+        self.ns_per_byte = 86805  # 10 ^ 6ns / 115200 * 10 = 86.805ns per byte
 
     # Highlevel commands
 
@@ -290,6 +290,7 @@ class Device():
         return self.__write_standard(6, self.CMD_DEVICE_INFO)
 
     def erase_page(self):
+        # 330ms read delay can be a bit lower but this should be safe
         return self.__write_standard(3, self.CMD_ERASE_PAGE, 330)
 
     # Privates
@@ -334,7 +335,7 @@ class Device():
         args = self.__get_addr_data(addr, len(data) - 1)
         args += data
 
-        return self.__write_standard(3, self.CMD_WRITE_BLOCK, 0, args)  # wait -16 ms
+        return self.__write_standard(3, self.CMD_WRITE_BLOCK, 0, args)
 
     def __write_standard(self, resp_length, command, wait_ms=0, args=None):
         if resp_length < 3:
@@ -355,9 +356,9 @@ class Device():
             logger.warning("Requested total bytes of response is zero or less.")
 
         # Sleep at least 1 ms before reading. Remember sleep operation is OS specific and cannot be guaranteed
-        # to be accurate.
-        pre_sleep = float(total_bytes * self.ns_per_byte / 1000000) + wait_ms
-        logger.debug("~ %d ms" % pre_sleep)
+        # to be accurate. Use ns_per_byte to fine tune the read delay per byte.
+        pre_sleep = (float(total_bytes * self.ns_per_byte) / 1000000) + wait_ms
+        logger.debug("~ %.2f ms (%d bytes)" % (pre_sleep, total_bytes))
         sleep(pre_sleep / 1000 if pre_sleep > 1 else 1)
 
         data = self.ser.read(total_bytes)
