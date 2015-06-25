@@ -14,7 +14,7 @@ from time import sleep
 from struct import pack, unpack_from
 from serial import SerialTimeoutException
 
-logger = logging.getLogger('fuctlog')
+LOG = logging.getLogger('fuctlog')
 
 
 class SMResponse():
@@ -114,23 +114,23 @@ class Device():
             cid = ord(resp.data[0])
             if cid == self.DEVICE_INFO_CONSTANT:
                 device_id = unpack_from('>H', resp.data, 1)[0]
-                logger.debug("Device ID: 0x%04x" % device_id)
+                LOG.debug("Device ID: 0x%04x" % device_id)
                 device = self.__parse_device_info(device_id)
                 if device[0] == 0x0C:
-                    logger.info("Device is S12X/XE family")
+                    LOG.info("Device is S12X/XE family")
                     if device[1] == 0x04 and device[2] == 1 and 0 <= device[3] <= 2:
-                        logger.info("Device looks FreeEMS compatible :)")
+                        LOG.info("Device looks FreeEMS compatible :)")
                         return True
                     elif 1 >= device[1] >= 0 == device[2]:
-                        logger.warn("Device looks FreeEMS compatible, but with wrong maskset :/")
+                        LOG.warn("Device looks FreeEMS compatible, but with wrong maskset :/")
                     elif device[1] == 0x0C and (device[2] == 8 or device[2] == 9) and 0 <= device[3] <= 2:
-                        logger.warn("Device looks XEP100 (Megasquirt-III?)")
+                        LOG.warn("Device looks XEP100 (Megasquirt-III?)")
                     else:
-                        logger.warn("Device is not FreeEMS compatible :(")
+                        LOG.warn("Device is not FreeEMS compatible :(")
                 elif device[0] == 0x03:
-                    logger.warn("Device is S12C family (Megasquirt-II/Microsquirt?)")
+                    LOG.warn("Device is S12C family (Megasquirt-II/Microsquirt?)")
                 else:
-                    logger.error("Device is unknown family")
+                    LOG.error("Device is unknown family")
                 return False
             else:
                 raise ValueError("Invalid device info constant (0x%02x), should be 0x%02x" % (cid, self.DEVICE_INFO_CONSTANT))
@@ -157,16 +157,16 @@ class Device():
         m = hashlib.md5()
         m.update(smdata)
         sm_hash = binascii.hexlify(m.digest())
-        logger.debug('SM MD5: %s' % sm_hash)
+        LOG.debug('SM MD5: %s' % sm_hash)
         info = self.SM_VERSIONS.get(sm_hash)
         if info is not None:
-            logger.info('SM Identified as: %s' % info)
+            LOG.info('SM Identified as: %s' % info)
         else:
-            logger.warning('SM is not recognized, use debug mode to get more info')
+            LOG.warning('SM is not recognized, use debug mode to get more info')
 
-        logger.debug('SM Device ID: 0x%02x%02x' % (smdata[self.SM_DEVICE_IDX], smdata[self.SM_DEVICE_IDX + 1]))
-        logger.debug('SM Date: %02x/%02x/%02x%02x' % (smdata[self.SM_MONTH_IDX], smdata[self.SM_DAY_IDX], smdata[self.SM_YEAR_IDX], smdata[self.SM_YEAR_IDX + 1]))
-        logger.debug('SM Version: %x.%x' % (smdata[self.SM_VERSION_IDX], smdata[self.SM_VERSION_IDX + 1]))
+        LOG.debug('SM Device ID: 0x%02x%02x' % (smdata[self.SM_DEVICE_IDX], smdata[self.SM_DEVICE_IDX + 1]))
+        LOG.debug('SM Date: %02x/%02x/%02x%02x' % (smdata[self.SM_MONTH_IDX], smdata[self.SM_DAY_IDX], smdata[self.SM_YEAR_IDX], smdata[self.SM_YEAR_IDX + 1]))
+        LOG.debug('SM Version: %x.%x' % (smdata[self.SM_VERSION_IDX], smdata[self.SM_VERSION_IDX + 1]))
 
         return True
 
@@ -214,7 +214,7 @@ class Device():
     def rip_and_save_pages(self, filepath, start, end):
         last = end + 1
         for page in xrange(start, last):
-            logger.info("16k page @ 0x%02x" % page)
+            LOG.info("16k page @ 0x%02x" % page)
             self.set_page(page)
             data = self.read_page()
         logging.info("Done")
@@ -230,11 +230,11 @@ class Device():
         for page in xrange(start, last):
             self.set_page(page)
             self.erase_page()
-            if logger.getEffectiveLevel() == logging.INFO:
+            if LOG.getEffectiveLevel() == logging.INFO:
                 sys.stdout.write("\r [%3d%%]" % ((float(counter) / float(total)) * 100))
                 sys.stdout.flush()
             counter += 1
-        if logger.getEffectiveLevel() == logging.INFO:
+        if LOG.getEffectiveLevel() == logging.INFO:
             sys.stdout.write("\r")
             sys.stdout.flush()
 
@@ -249,11 +249,11 @@ class Device():
         for page in range(0, 64):
             resp = self.__read_block(addr, 0xFF)
             data += resp.data
-            if logger.getEffectiveLevel() == logging.INFO:
+            if LOG.getEffectiveLevel() == logging.INFO:
                 sys.stdout.write("\r [%d bytes]" % len(data))
                 sys.stdout.flush()
             addr += 256
-        if logger.getEffectiveLevel() == logging.INFO:
+        if LOG.getEffectiveLevel() == logging.INFO:
             sys.stdout.write("\r")
             sys.stdout.flush()
 
@@ -302,22 +302,22 @@ class Device():
     def __write_command(self, cmd, args=None):
         try:
             self.ser.flushInput()
-            logger.debug("--> 0x%02x" % cmd)
+            LOG.debug("--> 0x%02x" % cmd)
             cmd_bytes = self.ser.write(chr(cmd))
             if cmd_bytes > 0:
                 if args is not None:
-                    logger.debug("--> %s" % binascii.hexlify(args))
+                    LOG.debug("--> %s" % binascii.hexlify(args))
                     arg_bytes = self.ser.write(args)
                     if arg_bytes > 0:
                         return cmd_bytes + arg_bytes
                     else:
-                        logger.error("Sending command arguments failed (0 bytes written).")
+                        LOG.error("Sending command arguments failed (0 bytes written).")
                         return None
                 return cmd_bytes
             else:
-                logger.error("Sending command failed (0 bytes written).")
+                LOG.error("Sending command failed (0 bytes written).")
         except SerialTimeoutException:
-            logger.error("Serial timeout occured when sending command. Check port connection.")
+            LOG.error("Serial timeout occured when sending command. Check port connection.")
         return None
 
     def __write_byte(self, addr, byte):
@@ -329,7 +329,7 @@ class Device():
 
     def __write_block(self, addr, data):
         if len(data) > self.BLOCK_SIZE:
-            logger.error("Block has %d bytes, needs to be 256 bytes or less" % len(data))
+            LOG.error("Block has %d bytes, needs to be 256 bytes or less" % len(data))
             return None
 
         args = self.__get_addr_data(addr, len(data) - 1)
@@ -339,7 +339,7 @@ class Device():
 
     def __write_standard(self, resp_length, command, wait_ms=0, args=None):
         if resp_length < 3:
-            logger.error('Response for command %d must have at least 3 bytes' % command)
+            LOG.error('Response for command %d must have at least 3 bytes' % command)
             return None
 
         if self.__write_command(command, args) is not None:
@@ -353,21 +353,21 @@ class Device():
 
     def __get_data_after_wait(self, total_bytes, wait_ms=0):
         if total_bytes <= 0:
-            logger.warning("Requested total bytes of response is zero or less.")
+            LOG.warning("Requested total bytes of response is zero or less.")
 
         # Sleep at least 1 ms before reading. Remember sleep operation is OS specific and cannot be guaranteed
         # to be accurate. Use ns_per_byte to fine tune the read delay per byte.
         pre_sleep = (float(total_bytes * self.ns_per_byte) / 1000000) + wait_ms
-        logger.debug("~ %.2f ms (%d bytes)" % (pre_sleep, total_bytes))
+        LOG.debug("~ %.2f ms (%d bytes)" % (pre_sleep, total_bytes))
         sleep(pre_sleep / 1000 if pre_sleep > 1 else 1)
 
         data = self.ser.read(total_bytes)
-        logger.debug("<-- %s" % binascii.hexlify(data))
+        LOG.debug("<-- %s" % binascii.hexlify(data))
         return data
 
     def __check_open_response(self, data, offset=0):
         if len(data) < 3:
-            logger.error('Invalid open response (too few bytes)')
+            LOG.error('Invalid open response (too few bytes)')
             return None
 
         resp = tuple([ord(x) for x in data[offset:offset + 3]])
@@ -375,19 +375,19 @@ class Device():
                 resp == (self.RC_NOT_RECOGNISED, self.SC_MONITOR_ACTIVE, self.SM_PROMPT):
             return SMResponse(resp[0], resp[1], data)
 
-        logger.error('Invalid open response, is device in load/SM mode?')
+        LOG.error('Invalid open response, is device in load/SM mode?')
         return None
 
     def __check_response(self, data, offset):
         if len(data) < offset + 3:
-            logger.error('Invalid response (too few bytes)')
+            LOG.error('Invalid response (too few bytes)')
             return None
 
         resp = tuple([ord(x) for x in data[offset:offset + 3]])
         if resp == (self.RC_NO_ERROR, self.SC_MONITOR_ACTIVE, self.SM_PROMPT):
             return SMResponse(resp[0], resp[1], data[:-3])
 
-        logger.error('Invalid response (no prompt or unrecognized command)')
+        LOG.error('Invalid response (no prompt or unrecognized command)')
         return None
 
     # Helpers
