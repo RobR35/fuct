@@ -9,7 +9,7 @@ __author__ = 'ari'
 import logging
 from srecord import SRecord, STYPES
 
-logger = logging.getLogger('fuctlog')
+LOG = logging.getLogger('fuctlog')
 
 
 def verify_firmware(filepath):
@@ -18,22 +18,22 @@ def verify_firmware(filepath):
     lf_count = content.count('\n')
 
     if lf_count > 0 and cr_count == 0:
-        logger.info("S19 file contains " + str(lf_count) + " lines (Unix)")
+        LOG.info("S19 file contains " + str(lf_count) + " lines (Unix)")
     elif lf_count == 0 and cr_count > 0:
-        logger.info("S19 file contains " + str(lf_count) + " lines (old Macintosh)")
+        LOG.info("S19 file contains " + str(lf_count) + " lines (old Macintosh)")
     elif 0 < cr_count == lf_count:
-        logger.info("S19 file contains " + str(lf_count) + " lines (Windows)")
+        LOG.info("S19 file contains " + str(lf_count) + " lines (Windows)")
     elif 0 < lf_count != 0 < cr_count:
-        logger.warning("S19 file contains mixed EOL characters?!")
+        LOG.warning("S19 file contains mixed EOL characters?!")
     elif lf_count == cr_count == 0:
-        logger.warning("S19 file contains no EOL chatacters?!")
+        LOG.warning("S19 file contains no EOL chatacters?!")
 
     records = []
     for ln, line in enumerate(content.splitlines()):
         try:
             records.append(parse_line(line))
         except TypeError, ex:
-            logger.error("Line %d: %s" % (ln + 1, ex.message))
+            LOG.error("Line %d: %s" % (ln + 1, ex.message))
             return None
 
     return records

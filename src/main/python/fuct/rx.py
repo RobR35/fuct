@@ -10,8 +10,6 @@ import threading
 import logging
 import Queue
 
-logger = logging.getLogger('fuctlog')
-
 
 class RxThread(threading.Thread):
     def __init__(self, ser, queue_in, queue_log):

@@ -8,7 +8,7 @@ __author__ = 'ari'
 
 import logging
 
-logger = logging.getLogger('fuctlog')
+LOG = logging.getLogger('fuctlog')
 
 
 class MemoryPage:
@@ -46,10 +46,10 @@ def records_to_pages(records):
                     curr_page = rpage
                     last_addr = add_to_page(page, rec.data, address)
             else:
-                logger.warning("Record has no data, skipping...")
+                LOG.warning("Record has no data, skipping...")
 
         else:
-            logger.warning("%s records are not supported, skipping..." % rec.stype[0])
+            LOG.warning("%s records are not supported, skipping..." % rec.stype[0])
 
     pages.append(page)  # TODO: add to for loops last round
 
