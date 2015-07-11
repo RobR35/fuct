@@ -136,14 +136,13 @@ elif args.serial is not None:
         logcounter = 1
         rxThread.logging = True
 
+        msg = None
         while True:
-            msg = None
             try:
-                msg = queue_log.get(False)
+                msg = queue_log.get()  # blocking get to drop cpu usage (not sure if empty except is needed anymore)
                 LOG.debug("<-- %s" % binascii.hexlify(msg))
             except Queue.Empty:
                 msg = None
-                pass
 
             if os.path.getsize(logname) >= sizelimit:
                 logfile.close()
