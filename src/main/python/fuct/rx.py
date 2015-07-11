@@ -14,16 +14,16 @@ LOG = log.fuct_logger('fuctlog')
 
 
 class RxThread(threading.Thread):
-    def __init__(self, ser, queue_in, queue_log):
+    def __init__(self, ser, queue_in, queue_log=None):
         super(RxThread, self).__init__()
         self.ser = ser
         self.queue_in = queue_in
         self.queue_log = queue_log
         self.logging = False
-        self.active = True
+        self._active = True
 
     def stop(self):
-        self.active = False
+        self._active = False
 
     def run(self):
         in_packet = False
@@ -31,7 +31,7 @@ class RxThread(threading.Thread):
         outbuf = bytearray()
 
         LOG.debug("Starting RX thread")
-        while self.active:
+        while self._active:
 
             # Incoming
             buf = self.ser.read(1024)
@@ -61,7 +61,7 @@ class RxThread(threading.Thread):
                     if (size == length + 5) or (checksum1 == checksum2):
                         if payload == 0x191:  # log packet
                             try:
-                                if self.logging:
+                                if self.logging and self.queue_log is not None:
                                     self.queue_log.put(outbuf[5:], False)
                             except Queue.Full:
                                 LOG.warn("Medic! Log queue size overflow.")

@@ -114,18 +114,19 @@ elif args.serial is not None:
 
         queue_in = Queue.Queue(0)
         queue_out = Queue.Queue(0)
-        queue_log = Queue.Queue(QUEUE_SIZE_LOG)
-
-        rxThread = rx.RxThread(ser, queue_in, queue_log)
-        rxThread.start()
 
         executor = futures.ThreadPoolExecutor(max_workers=1)
+
+        rxThread = rx.RxThread(ser, queue_in)
+        rxThread.start()
 
         # interrogation
         i = interrogator.Interrogator(ser, queue_in, queue_out)
         meta = i.run()
         metafile.write(json.dumps(meta, sort_keys=True, indent=2))
         metafile.close()
+        rxThread.stop()
+        rxThread.join()
 
         # logging
         sizelimit = convert_sizelimit(args.size) if args.size is not None else 128000000
@@ -134,15 +135,10 @@ elif args.serial is not None:
         LOG.info("Start logging... (Ctrl+C to quit)")
         spinner = busy_icon()
         logcounter = 1
-        rxThread.logging = True
 
         msg = None
         while True:
-            try:
-                msg = queue_log.get()  # blocking get to drop cpu usage (not sure if empty except is needed anymore)
-                LOG.debug("<-- %s" % binascii.hexlify(msg))
-            except Queue.Empty:
-                msg = None
+            buf = ser.read(1024)
 
             if os.path.getsize(logname) >= sizelimit:
                 logfile.close()
@@ -154,15 +150,12 @@ elif args.serial is not None:
                 LOG.info("=> %s" % logname)
                 logcounter += 1
 
-            if msg:
-                logfile.write(msg)
-                sys.stdout.write(spinner.next())
-                sys.stdout.flush()
-                sys.stdout.write('\b')
+            logfile.write(buf)
+            sys.stdout.write(spinner.next())
+            sys.stdout.flush()
+            sys.stdout.write('\b')
     except KeyboardInterrupt:
         LOG.info("Logging stopped")
-        rxThread.stop()
-        time.sleep(2)  # let rx thread shutdown peacefully
         ser.close()
         logfile.close()
         LOG.info("Compressing logfile")
