@@ -16,6 +16,7 @@ import math
 import os.path
 import Queue
 import json
+import binascii
 from serial.serialutil import SerialException
 from fuct import log, rx, interrogator, __version__, __git__
 
@@ -79,14 +80,13 @@ elif args.serial is not None:
             LOG.setLevel(logging.DEBUG)
 
         LOG.info("Opening port %s" % args.serial)
-        ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
+        ser = serial.Serial(args.serial, 115200, timeout=1, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
         LOG.debug(ser)
 
         basename = logname = create_filename(args.prefix, args.path)
         LOG.info("Opening logfile: %s" % logname)
         logfile = open(logname, 'w')
 
-        # interrogation
         queue_in = Queue.Queue(0)
         queue_out = Queue.Queue(0)
         queue_log = Queue.Queue(QUEUE_SIZE_LOG)
@@ -94,6 +94,7 @@ elif args.serial is not None:
         rxThread = rx.RxThread(ser, queue_in, queue_log)
         rxThread.start()
 
+        # interrogation
         i = interrogator.Interrogator(ser, queue_in, queue_out)
         meta = i.run()
         f = open(create_filename("meta", args.path, ext="json"), 'w')
@@ -107,8 +108,19 @@ elif args.serial is not None:
         LOG.info("Start logging... (Ctrl+C to quit)")
         spinner = busy_icon()
         logcounter = 1
+        rxThread.logging = True
+
         while True:
-            buf = ser.read(1024)
+            msg = None
+            try:
+                time.sleep(0.01)  # FIXME: without slowing the log queue down filesizes will go crazy
+                msg = queue_log.get(False)
+                LOG.debug("<-- %s" % binascii.hexlify(msg))
+                #data = protocol.Protocol.decode_packet(msg)
+                print "QUEUE: %d %d %d" % (queue_in.qsize(), queue_out.qsize(), queue_log.qsize())
+
+            except Queue.Empty:
+                pass
 
             if os.path.getsize(logname) >= sizelimit:
                 logfile.close()
@@ -119,13 +131,15 @@ elif args.serial is not None:
                 LOG.info("=> %s" % logname)
                 logcounter += 1
 
-            logfile.write(buf)
+            if msg:
+                logfile.write(msg)
 
             sys.stdout.write(spinner.next())
             sys.stdout.flush()
             sys.stdout.write('\b')
     except KeyboardInterrupt:
         LOG.info("Logging stopped, exiting...")
+        rxThread.stop()
         ser.close()
         logfile.close()
     except NotImplementedError, ex:

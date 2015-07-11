@@ -7,8 +7,11 @@
 __author__ = 'ari'
 
 import threading
-import logging
 import Queue
+import log
+import time
+
+LOG = log.fuct_logger('fuctlog')
 
 
 class RxThread(threading.Thread):
@@ -17,6 +20,7 @@ class RxThread(threading.Thread):
         self.ser = ser
         self.queue_in = queue_in
         self.queue_log = queue_log
+        self.logging = False
         self.active = True
 
     def stop(self):
@@ -57,8 +61,10 @@ class RxThread(threading.Thread):
                     if (size == length + 5) or (checksum1 == checksum2):
                         if payload == 0x191:  # log packet
                             try:
-                                self.queue_log.put(outbuf[5:], False)
+                                if self.logging:
+                                    self.queue_log.put(outbuf[5:], False)
                             except Queue.Full:
+                                # TODO: log queue overflow situations
                                 pass
                         else:
                             self.queue_in.put(outbuf)
