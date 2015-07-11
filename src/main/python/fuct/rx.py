@@ -9,7 +9,6 @@ __author__ = 'ari'
 import threading
 import Queue
 import log
-import time
 
 LOG = log.fuct_logger('fuctlog')
 
@@ -31,6 +30,7 @@ class RxThread(threading.Thread):
         in_escape = False
         outbuf = bytearray()
 
+        LOG.debug("Starting RX thread")
         while self.active:
 
             # Incoming
@@ -64,7 +64,7 @@ class RxThread(threading.Thread):
                                 if self.logging:
                                     self.queue_log.put(outbuf[5:], False)
                             except Queue.Full:
-                                # TODO: log queue overflow situations
+                                LOG.warn("Medic! Log queue size overflow.")
                                 pass
                         else:
                             self.queue_in.put(outbuf)
@@ -88,3 +88,5 @@ class RxThread(threading.Thread):
                             outbuf += chr(0xCC)
 
                         in_escape = False
+
+        LOG.debug("Exiting RX thread")
