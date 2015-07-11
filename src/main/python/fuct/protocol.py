@@ -16,7 +16,11 @@ class Protocol(object):
     FE_CMD_RAM_READ = 0x0104
     FE_CMD_FLASH_READ = 0x0106
 
+    FE_CMD_INTERFACE = 0x0000
     FE_CMD_FIRMWARE = 0x0002
+    FE_CMD_DATALOG_DESC = 0x0300
+    FE_CMD_LOCATION_ID_LIST = 0xDA5E
+    FE_CMD_LOCATION_ID_INFO = 0xF8E0
     FE_CMD_DECODER = 0xEEEE
     FE_CMD_BUILDDATE = 0xEEF0
     FE_CMD_COMPILER = 0xEEF2
@@ -49,7 +53,7 @@ class Protocol(object):
         msg = bytearray()
         msg.append(0xAA)
 
-        if use_length and beef_size > 0:
+        if use_length or beef_size > 0:
             msg.append(0x01)
         else:
             msg.append(0x00)
