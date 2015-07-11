@@ -22,6 +22,7 @@ default_task = ["install_dependencies", "publish"]
 def set_properties(project, logger):
     project.get_property("filter_resources_glob").append("**/fuct/__init__.py")
     project.depends_on("pyserial", ">=2.7")
+    project.depends_on("futures", ">=3.0.3")
     project.depends_on("colorlog[windows]", ">=2.0.0")
     logger.info("Executing git describe")
     project.version = subprocess.check_output(

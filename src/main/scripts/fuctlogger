@@ -18,6 +18,7 @@ import Queue
 import json
 import binascii
 import bz2
+import concurrent.futures as futures
 from serial.serialutil import SerialException
 from fuct import log, rx, interrogator, __version__, __git__
 
@@ -26,19 +27,19 @@ QUEUE_SIZE_LOG = 50
 
 
 def compress_file(filename):
-        comp = bz2.BZ2Compressor()
-        src = file(filename, "r")
-        dst = file(filename + ".bz2", "w")
-        block = src.read(2048)
-        while block:
-            cblock = comp.compress(block)
-            dst.write(cblock)
-            block = src.read(2048)
-        cblock = comp.flush()
+    comp = bz2.BZ2Compressor()
+    src = file(filename, "r")
+    dst = file(filename + ".bz2", "w")
+    block = src.read(2048)
+    while block:
+        cblock = comp.compress(block)
         dst.write(cblock)
-        src.close()
-        dst.close()
-        os.remove(filename)
+        block = src.read(2048)
+    cblock = comp.flush()
+    dst.write(cblock)
+    src.close()
+    dst.close()
+    os.remove(filename)
 
 
 def create_filename(prefix, path, tstamp=time.strftime("%Y%m%d-%H%M%S"), ext="bin", identifier="none"):
@@ -118,6 +119,8 @@ elif args.serial is not None:
         rxThread = rx.RxThread(ser, queue_in, queue_log)
         rxThread.start()
 
+        executor = futures.ThreadPoolExecutor(max_workers=1)
+
         # interrogation
         i = interrogator.Interrogator(ser, queue_in, queue_out)
         meta = i.run()
@@ -144,7 +147,7 @@ elif args.serial is not None:
 
             if os.path.getsize(logname) >= sizelimit:
                 logfile.close()
-                # TODO: compress splitted logfile (use future, etc...)
+                executor.submit(compress_file, logfile.name)
                 logname = "%s.%d" % (basename, logcounter)
                 logfile = open(logname, 'w')
                 sys.stdout.flush()
