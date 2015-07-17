@@ -12,8 +12,9 @@ import argparse
 import serial
 import textwrap
 import logging
+import sys
 from serial.serialutil import SerialException
-from fuct import log, device, validator, pages, __version__, __git__
+from fuct import common, log, serialmonitor, validator, pages, __version__, __git__
 
 LOG = log.fuct_logger('fuctlog')
 
@@ -37,7 +38,7 @@ class CmdHandler:
     @staticmethod
     def get_device(port):
         LOG.info("Checking device...")
-        dev = device.Device(port)
+        dev = serialmonitor.SMDevice(port)
         if dev.reinit() is not None:
             if dev.check_device:
                 return dev
@@ -92,15 +93,24 @@ class CmdHandler:
             LOG.info("Converting records to memory pages...")
             header = records.pop(0)  # S0 Record
             termination = records.pop()  # S8 Record
-            pagelist = pages.records_to_pages(records)
+            pagedata = pages.records_to_pages(records)
+            pagelist = pagedata[0]
             LOG.info("Received %d pages" % len(pagelist))
             LOG.info("Loading firmware: '%s'" % str(header.data))
 
             last_page = None
+            loaded_size = 0
             for page in pagelist:
-                LOG.info("%6d bytes to 0x%02x @ 0x%04x" % (len(page.data), page.page, page.address))
+                page_size = len(page.data)
+                LOG.debug("%6d bytes to 0x%02x @ 0x%04x" % (page_size, page.page, page.address))
                 dev.erase_and_write(page, erase=False if page.page == last_page else True, verify=verify)
                 last_page = page.page
+                loaded_size += page_size
+                common.print_progress(float(loaded_size) / pagedata[1])
+
+            sys.stdout.write("\r")
+            sys.stdout.flush()
+            LOG.info("Firmware loaded successfully")
 
             return True
 
@@ -116,8 +126,7 @@ class CmdHandler:
         if params[0] is not None:
             dev = CmdHandler.get_device(params[0])
             LOG.info("Ripping pages from 0xE0 to 0xFF")
-            dev.rip_and_save_pages('demo.s19', 0xE0, 0xFF)
-
+            dev.rip_pages(0xE0, 0xFF)  # TODO: add filepath
             return True
 
         raise ValueError('serial port argument cannot be empty')

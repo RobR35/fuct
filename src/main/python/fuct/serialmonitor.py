@@ -10,6 +10,7 @@ import sys
 import logging
 import binascii
 import hashlib
+import common
 from time import sleep
 from struct import pack, unpack_from
 from serial import SerialTimeoutException
@@ -30,7 +31,7 @@ class SMResponse():
                 len(self.data))
 
 
-class Device():
+class SMDevice():
     # Motorola/Freescale serial monitor command characters
     # application note AN2548
 
@@ -109,7 +110,7 @@ class Device():
 
     @property
     def check_device(self):
-        resp = self.device_info()
+        resp = self.__device_info()
         if len(resp.data) == 3:
             cid = ord(resp.data[0])
             if cid == self.DEVICE_INFO_CONSTANT:
@@ -179,8 +180,8 @@ class Device():
                              (len(mempage.data), mempage.page, mempage.address))
 
         if erase:
-            self.set_page(mempage.page)
-            self.erase_page()
+            self.__set_page(mempage.page)
+            self.__erase_page()
 
         blocks = len(mempage.data) / self.BLOCK_SIZE
         trailing = len(mempage.data) % self.BLOCK_SIZE
@@ -192,34 +193,33 @@ class Device():
             start_block += self.BLOCK_SIZE
 
             self.__write_block(start_addr, block_data)
-            sys.stdout.write('.')
-            sys.stdout.flush()
 
-            if verify:  # TODO: implement verification
+            if verify:
                 read_back = self.__read_block(start_addr, self.BLOCK_SIZE - 1)
                 if block_data != read_back.data:
                     raise ValueError('Verification failed @ 0x%04x' % start_addr)
-                else:
-                    sys.stdout.write('\b#')
-                    sys.stdout.flush()
 
             start_addr += self.BLOCK_SIZE
-        sys.stdout.write("\r")
-        sys.stdout.flush()
 
         if trailing > 0:  # TODO: add trailing write to for loop and verify
             block_data = mempage.data[-trailing:]
             self.__write_block(start_addr, block_data)
 
-    def rip_and_save_pages(self, filepath, start, end):
+    def rip_pages(self, start, end, filepath=None):
         last = end + 1
-        for page in xrange(start, last):
-            LOG.info("16k page @ 0x%02x" % page)
-            self.set_page(page)
-            data = self.read_page()
-        logging.info("Done")
+        data = bytearray()
+        pages = last - start
+        for i, page in enumerate(xrange(start, last)):
+            progress = float(i) / pages
+            common.print_progress(progress)
+            self.__set_page(page)
+            data = self.__read_page()
 
-        # TODO: implement file save
+        sys.stdout.write("\r")
+        sys.stdout.flush()
+        LOG.info("Firmware ripped successfully")
+
+        # TODO: implement file save if filepath
 
         return data
 
@@ -228,76 +228,74 @@ class Device():
         last = end + 1
         counter = 0
         for page in xrange(start, last):
-            self.set_page(page)
-            self.erase_page()
+            self.__set_page(page)
+            self.__erase_page()
             if LOG.getEffectiveLevel() == logging.INFO:
-                sys.stdout.write("\r [%3d%%]" % ((float(counter) / float(total)) * 100))
-                sys.stdout.flush()
+                progress = float(counter) / total
+                common.print_progress(progress)
             counter += 1
         if LOG.getEffectiveLevel() == logging.INFO:
             sys.stdout.write("\r")
             sys.stdout.flush()
 
-        logging.info("Done")
+        LOG.info("Firmware erased successfully")
 
         return True
 
-    def read_page(self):
+    def reinit(self):
+        if self.__reset() is not None:
+            if self.__open_comm() is not None:
+                return True
+        return None
+
+    # -----
+
+    @staticmethod
+    def __get_addr_data(addr, data):
+        return pack('>HB', int(addr), data)
+
+    def __read_page(self):
         addr = 0x8000
         data = bytearray()
 
         for page in range(0, 64):
             resp = self.__read_block(addr, 0xFF)
             data += resp.data
-            if LOG.getEffectiveLevel() == logging.INFO:
-                sys.stdout.write("\r [%d bytes]" % len(data))
-                sys.stdout.flush()
+            #if LOG.getEffectiveLevel() == logging.INFO:
+            #    progress = float(page) / 64
+            #    common.print_progress(progress)
             addr += 256
-        if LOG.getEffectiveLevel() == logging.INFO:
-            sys.stdout.write("\r")
-            sys.stdout.flush()
+        #if LOG.getEffectiveLevel() == logging.INFO:
+        #    sys.stdout.write("\r")
+        #    sys.stdout.flush()
 
-        logging.info("Done")
+        #LOG.info("Firmware ripped successfully")
 
         return data
 
-    def set_page(self, page):
+    def __set_page(self, page):
         self.__write_byte(self.SM_PPAGE, page)
 
-    # Lowlevel commands  FIXME: move to privates?
+    def __erase_page(self):
+        # 330ms read delay can be a bit lower but this should be safe
+        return self.__write_and_read(3, self.CMD_ERASE_PAGE, 330)
 
-    def reset(self):
+    def __device_info(self):
+        return self.__write_and_read(6, self.CMD_DEVICE_INFO)
+
+    def __reset(self):
         if self.__write_command(self.CMD_RESET) is not None:
             rdata = self.__get_data_after_wait(5, 2)
             if len(rdata) <= 1:
                 return SMResponse(None, None, rdata)
         return None
 
-    def open_comm(self):
+    def __open_comm(self):
         if self.__write_command(self.SM_OPEN) is not None:
             rdata = self.__get_data_after_wait(4)
             if self.__check_open_response(rdata, 1 if len(rdata) == 4 else 0) is not None:
                 return True
         return None
-
-    def reinit(self):
-        if self.reset() is not None:
-            if self.open_comm() is not None:
-                return True
-        return None
-
-    def device_info(self):
-        return self.__write_standard(6, self.CMD_DEVICE_INFO)
-
-    def erase_page(self):
-        # 330ms read delay can be a bit lower but this should be safe
-        return self.__write_standard(3, self.CMD_ERASE_PAGE, 330)
-
-    # Privates
-
-    @staticmethod
-    def __get_addr_data(addr, data):
-        return pack('>HB', int(addr), data)
 
     def __write_command(self, cmd, args=None):
         try:
@@ -322,10 +320,10 @@ class Device():
 
     def __write_byte(self, addr, byte):
         args = self.__get_addr_data(addr, byte)
-        return self.__write_standard(3, self.CMD_WRITE_BYTE, 0, args)
+        return self.__write_and_read(3, self.CMD_WRITE_BYTE, 0, args)
 
     def __read_block(self, addr, length):
-        return self.__write_standard(length + 4, self.CMD_READ_BLOCK, 0, self.__get_addr_data(addr, length))
+        return self.__write_and_read(length + 4, self.CMD_READ_BLOCK, 0, self.__get_addr_data(addr, length))
 
     def __write_block(self, addr, data):
         if len(data) > self.BLOCK_SIZE:
@@ -335,9 +333,9 @@ class Device():
         args = self.__get_addr_data(addr, len(data) - 1)
         args += data
 
-        return self.__write_standard(3, self.CMD_WRITE_BLOCK, 0, args)
+        return self.__write_and_read(3, self.CMD_WRITE_BLOCK, 0, args)
 
-    def __write_standard(self, resp_length, command, wait_ms=0, args=None):
+    def __write_and_read(self, resp_length, command, wait_ms=0, args=None):
         if resp_length < 3:
             LOG.error('Response for command %d must have at least 3 bytes' % command)
             return None
