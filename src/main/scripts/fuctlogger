@@ -98,7 +98,7 @@ elif args.serial is not None:
             LOG.setLevel(logging.DEBUG)
 
         LOG.info("Opening port %s" % args.serial)
-        ser = serial.Serial(args.serial, 115200, timeout=1, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
+        ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
         LOG.debug(ser)
 
         file_identifier = binascii.hexlify(os.urandom(3))
@@ -121,12 +121,29 @@ elif args.serial is not None:
         rxThread.start()
 
         # interrogation
+        time1 = time.time()
         i = interrogator.Interrogator(ser, queue_in, queue_out)
-        meta = i.run()
-        metafile.write(json.dumps(meta, sort_keys=True, indent=2))
-        metafile.close()
+        meta = i.get_metadata()
+        meta_out = {'firmware': meta[0]}
+
+        for lid in meta[1]:
+            if lid not in [0xc023, 0xf004]:  # FIXME: y these locations no work?
+                info = i.get_location_info(lid)
+                if info.ram_page > 0:
+                    ram_data = i.get_ram_data((lid, 0), info.size)
+                    # FIXME: store data to json?
+                if info.flash_page > 0:
+                    flash_data = i.get_flash_data((lid, 0), info.size)
+                    # FIXME: store data to json?
+
+        LOG.info("Interrogation done (%.2f sec)" % (time.time() - time1))
+
         rxThread.stop()
         rxThread.join()
+
+        LOG.info("Writing meta file")
+        metafile.write(json.dumps(meta_out, sort_keys=True, indent=2))
+        metafile.close()
 
         # logging
         sizelimit = convert_sizelimit(args.size) if args.size is not None else 128000000
@@ -138,7 +155,7 @@ elif args.serial is not None:
 
         msg = None
         while True:
-            buf = ser.read(1024)
+            buf = ser.read(128)
 
             if os.path.getsize(logname) >= sizelimit:
                 logfile.close()

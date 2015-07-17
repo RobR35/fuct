@@ -6,12 +6,12 @@
 
 __author__ = 'ari'
 
-import time
 import binascii
-import protocol
 import struct
 import Queue
 import log
+from collections import namedtuple
+from protocol import Protocol
 
 LOG = log.fuct_logger('fuctlog')
 
@@ -23,61 +23,103 @@ class Interrogator(object):
         self.queue_in = queue_in
         self.queue_out = queue_out
 
-    def run(self):
+    def get_metadata(self):
         meta_cmds = [
-            ("interface", protocol.Protocol.FE_CMD_INTERFACE),
-            ("firmware", protocol.Protocol.FE_CMD_FIRMWARE),
-            ("decoder", protocol.Protocol.FE_CMD_DECODER),
-            ("build_date", protocol.Protocol.FE_CMD_BUILDDATE),
-            ("compiler", protocol.Protocol.FE_CMD_COMPILER),
-            ("os", protocol.Protocol.FE_CMD_OSNAME),
-            ("build_by", protocol.Protocol.FE_CMD_USER),
-            ("email", protocol.Protocol.FE_CMD_EMAIL)
+            ("interface", Protocol.FE_CMD_INTERFACE),
+            ("firmware", Protocol.FE_CMD_FIRMWARE),
+            ("decoder", Protocol.FE_CMD_DECODER),
+            ("build_date", Protocol.FE_CMD_BUILDDATE),
+            ("compiler", Protocol.FE_CMD_COMPILER),
+            ("os", Protocol.FE_CMD_OSNAME),
+            ("build_by", Protocol.FE_CMD_USER),
+            ("email", Protocol.FE_CMD_EMAIL)
         ]
-
         meta = {}
+        location_ids = None
 
         for _, cmd in meta_cmds:
-            self.queue_out.put(protocol.Protocol.create_packet(cmd))
+            self.queue_out.put(Protocol.create_packet(cmd))
 
-        #queue_out.put(protocol.Protocol.create_packet(protocol.Protocol.FE_CMD_LOCATION_ID_LIST, data=bytearray(b'\x00\x00\x00')))
+        self.queue_out.put(Protocol.create_packet(Protocol.FE_CMD_LOCATION_ID_LIST, data=bytearray(b'\x00\x00\x00'), use_length=True))
 
         while True:
-            if all(name in meta for name, _ in meta_cmds):
+            if all(name in meta for name, _ in meta_cmds) and location_ids is not None:
                 break
 
             try:
-                time.sleep(0.2)
-                packet = self.queue_out.get(False)
-                LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
-                self.ser.write(packet)
-                self.ser.flush()
-            except Queue.Empty:
-                pass
+                if not self.queue_out.empty():
+                    packet = self.queue_out.get(False)
+                    LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
+                    self.ser.write(packet)
+                    self.ser.flush()
 
-            try:
-                msg = self.queue_in.get(False)
-                LOG.debug("<-- %s" % binascii.hexlify(msg))
-                data = protocol.Protocol.decode_packet(msg)
+                    resp = self.queue_in.get()
+                    LOG.debug("<-- %s" % binascii.hexlify(resp))
+                    data = Protocol.decode_packet(resp)
 
-                # FIXME: hax, make more elegant
-                meta_info = [(name, data[1].decode("ascii").rstrip('\0')) for name, cmd_id in meta_cmds if cmd_id + 1 == data[0]][0]
-                if meta_info:
-                    LOG.info("Received meta: %s" % meta_info[0])
-                    meta[meta_info[0]] = meta_info[1]
+                    # FIXME: hax, make more elegant
+                    meta_info = [(name, data[1].decode("ascii").rstrip('\0')) for name, cmd_id in meta_cmds if cmd_id + 1 == data[0]]
+                    if meta_info:
+                        m = meta_info[0]
+                        LOG.info("Received meta: %s" % m[0])
+                        meta[m[0]] = m[1]
+                    elif data[0] == Protocol.FE_CMD_LOCATION_ID_LIST + 1:
+                        ids = len(data[1]) / 2
+                        LOG.info("Received %d location IDs" % ids)
+                        location_ids = struct.unpack_from(">%dH" % ids, data[1])
 
-                elif data[0] == protocol.Protocol.FE_CMD_LOCATION_ID_LIST + 1:
-                    LOG.info("Received location ID list")
-                    locs = struct.unpack_from(">25H", data[1])
-                    #for loc in locs:
-                    #    queue_out.put(protocol.Protocol.create_packet(protocol.Protocol.FE_CMD_LOCATION_ID_INFO, data=struct.pack(">H", loc)))
-                    #queue_out.put(protocol.Protocol.create_packet(protocol.Protocol.FE_CMD_LOCATION_ID_INFO, data=bytearray(b'\x90\x00')))
-                elif data[0] == protocol.Protocol.FE_CMD_LOCATION_ID_INFO + 1:
-                    LOG.info("Received location info")
-                    print data
-                    print binascii.hexlify(data[1])
+                    # TODO: error message handling
 
             except Queue.Empty:
                 pass
 
-        return meta
+        return meta, location_ids
+
+    def get_location_info(self, location_id):
+        LOG.info("Get location info: 0x%02x" % location_id)
+        packet = Protocol.create_packet(Protocol.FE_CMD_LOCATION_ID_INFO, data=struct.pack(">H", location_id))
+        LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
+        self.ser.write(packet)
+        self.ser.flush()
+
+        locinfo = namedtuple('LocationInfo', ['flags', 'parent', 'ram_page', 'flash_page', 'ram_addr', 'flash_addr', 'size'])
+        resp = self.queue_in.get(5)
+        if resp:
+            LOG.debug("<-- %s" % binascii.hexlify(resp))
+            data = Protocol.decode_packet(resp)
+            if data[0] == Protocol.FE_CMD_LOCATION_ID_INFO + 1:
+                return locinfo(*struct.unpack_from(">HHBBHHH", data[1]))
+        else:
+            LOG.warn("Failed to load location...")
+
+    def get_ram_data(self, location, size):
+        LOG.info("Get RAM location: 0x%02x, offset: %d, size: %d" % (location[0], location[1], size))
+        packet = Protocol.create_packet(Protocol.FE_CMD_RAM_READ, location, size)
+        LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
+        self.ser.write(packet)
+        self.ser.flush()
+
+        resp = self.queue_in.get(5)
+        if resp:
+            LOG.debug("<-- %s" % binascii.hexlify(resp))
+            data = Protocol.decode_packet(resp)
+            if data[0] == Protocol.FE_CMD_RAM_READ + 1:
+                return data[1]
+        else:
+            LOG.warn("Failed to load location...")
+
+    def get_flash_data(self, location, size):
+        LOG.info("Get FLASH location: 0x%02x, offset: %d, size: %d" % (location[0], location[1], size))
+        packet = Protocol.create_packet(Protocol.FE_CMD_FLASH_READ, location, size)
+        LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
+        self.ser.write(packet)
+        self.ser.flush()
+
+        resp = self.queue_in.get(5)
+        if resp:
+            LOG.debug("<-- %s" % binascii.hexlify(resp))
+            data = Protocol.decode_packet(resp)
+            if data[0] == Protocol.FE_CMD_FLASH_READ + 1:
+                return data[1]
+        else:
+            LOG.warn("Failed to load location...")

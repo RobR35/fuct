@@ -44,8 +44,7 @@ class Protocol(object):
         if size is not None:
             beef.extend(struct.pack('>H', size))
 
-        elif data is not None:
-            beef.extend(struct.pack('>H', len(data)))
+        if data is not None:
             beef.extend(data)
         # -----
         beef_size = len(beef)
@@ -53,7 +52,7 @@ class Protocol(object):
         msg = bytearray()
         msg.append(0xAA)
 
-        if use_length or beef_size > 0:
+        if use_length and beef_size > 0:
             msg.append(0x01)
         else:
             msg.append(0x00)

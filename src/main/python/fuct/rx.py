@@ -34,14 +34,14 @@ class RxThread(threading.Thread):
         while self._active:
 
             # Incoming
-            buf = self.ser.read(1024)
+            buf = self.ser.read(100)
 
             for c in buf:
                 if ord(c) == 0xAA:
                     if in_packet:
                         """ Start byte in the middle of a packet, start fresh """
                         in_escape = False
-                        outbuf = bytearray()
+                        outbuf = outbuf[:]
 
                     in_packet = True
 
