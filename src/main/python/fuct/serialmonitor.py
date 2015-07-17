@@ -205,23 +205,22 @@ class SMDevice():
             block_data = mempage.data[-trailing:]
             self.__write_block(start_addr, block_data)
 
-    def rip_pages(self, start, end, filepath=None):
+    def rip_pages(self, start, end, filepath):
         last = end + 1
-        data = bytearray()
         pages = last - start
+
+        # TODO: saving raw data is good enough?
+        f = open(filepath, 'a+')
         for i, page in enumerate(xrange(start, last)):
             progress = float(i) / pages
             common.print_progress(progress)
             self.__set_page(page)
-            data = self.__read_page()
+            f.write(self.__read_page())
+        f.close()
 
         sys.stdout.write("\r")
         sys.stdout.flush()
         LOG.info("Firmware ripped successfully")
-
-        # TODO: implement file save if filepath
-
-        return data
 
     def erase_pages(self, start, end):
         total = end - start

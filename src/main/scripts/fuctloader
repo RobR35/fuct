@@ -13,6 +13,7 @@ import serial
 import textwrap
 import logging
 import sys
+import time
 from serial.serialutil import SerialException
 from fuct import common, log, serialmonitor, validator, pages, __version__, __git__
 
@@ -123,10 +124,11 @@ class CmdHandler:
 
     @staticmethod
     def do_rip(params):
+        filename = "rip-%s.bin" % time.strftime("%Y%m%d-%H%M%S")
         if params[0] is not None:
             dev = CmdHandler.get_device(params[0])
             LOG.info("Ripping pages from 0xE0 to 0xFF")
-            dev.rip_pages(0xE0, 0xFF)  # TODO: add filepath
+            dev.rip_pages(0xE0, 0xFF, filename)
             return True
 
         raise ValueError('serial port argument cannot be empty')
