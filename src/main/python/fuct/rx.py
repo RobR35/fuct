@@ -17,6 +17,7 @@ class RxThread(threading.Thread):
     def __init__(self, ser, queue_in, queue_log=None):
         super(RxThread, self).__init__()
         self.ser = ser
+        self.buffer_size = 1024
         self.queue_in = queue_in
         self.queue_log = queue_log
         self.logging = False
@@ -34,7 +35,7 @@ class RxThread(threading.Thread):
         while self._active:
 
             # Incoming
-            buf = self.ser.read(100)
+            buf = self.ser.read(self.buffer_size)
 
             for c in buf:
                 if ord(c) == 0xAA:

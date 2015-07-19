@@ -98,7 +98,7 @@ elif args.serial is not None:
             LOG.setLevel(logging.DEBUG)
 
         LOG.info("Opening port %s" % args.serial)
-        ser = serial.Serial(args.serial, 115200, timeout=0.02, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
+        ser = serial.Serial(args.serial, 115200, bytesize=8, parity=serial.PARITY_ODD, stopbits=1)
         LOG.debug(ser)
 
         file_identifier = binascii.hexlify(os.urandom(3))
@@ -117,7 +117,9 @@ elif args.serial is not None:
 
         executor = futures.ThreadPoolExecutor(max_workers=1)
 
+        ser.timeout = 0
         rxThread = rx.RxThread(ser, queue_in)
+        rxThread.buffer_size = 64
         rxThread.start()
 
         # interrogation
@@ -127,7 +129,7 @@ elif args.serial is not None:
         meta_out = {'firmware': meta[0]}
 
         for lid in meta[1]:
-            if lid not in [0xc023, 0xf004]:  # FIXME: y these locations no work?
+            if lid not in [0xc02311, 0xf00411]:  # FIXME: y these locations no work?
                 info = i.get_location_info(lid)
                 if info.ram_page > 0:
                     ram_data = i.get_ram_data((lid, 0), info.size)
@@ -146,6 +148,8 @@ elif args.serial is not None:
         metafile.close()
 
         # logging
+        ser.timeout = 0.02
+        rxThread.buffer_size = 8196
         sizelimit = convert_sizelimit(args.size) if args.size is not None else 128000000
         LOG.info("Setting logfile size to: %d bytes" % sizelimit)
 
