@@ -19,7 +19,10 @@ fuctlogger
 
     Features:
         * Saves data from the device into binary logfiles (can be used with OLV/ULV log viewer apps)
-        * Size limit to split into multiple files
+        * Size limit to split/rotate into multiple files
+        * Uses bz2 to compress logfiles when logger is stopped or file is rotated
+        * Reads and stores metadata from device at startup
+        * Does full interrogation on startup (data is not used at the moment)
         * Prefix option to name logfiles accordingly
 
 fucttrigger
@@ -57,6 +60,7 @@ Dependencies
 ------------
 
 * pyserial >=2.7
+* futures >= 3.0.3
 * colorlog >=2.0.0
 
 Examples
