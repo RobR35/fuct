@@ -65,7 +65,6 @@ class RxThread(threading.Thread):
                                 if self.logging and self.queue_log is not None:
                                     self.queue_log.put(outbuf[5:], False)
                             except Queue.Full:
-                                LOG.warn("Medic! Log queue size overflow.")
                                 pass
                         else:
                             self.queue_in.put(outbuf)

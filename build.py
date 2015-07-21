@@ -26,7 +26,7 @@ def set_properties(project, logger):
     project.depends_on("colorlog[windows]", ">=2.0.0")
     logger.info("Executing git describe")
     project.version = subprocess.check_output(
-        ["git", "tag"]).rstrip("\n")
+        ["git", "describe", "--exact-match", "--abbrev=0"]).rstrip("\n")
     project.set_property("gitdesc", subprocess.check_output(
         ["git", "describe", "--tags", "--always", "--long", "--dirty"]).rstrip("\n"))
     project.set_property("dir_dist", "$dir_target/dist/%s-%s" % (project.name, project.version))
