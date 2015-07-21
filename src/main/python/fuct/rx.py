@@ -42,7 +42,7 @@ class RxThread(threading.Thread):
                     if in_packet:
                         """ Start byte in the middle of a packet, start fresh """
                         in_escape = False
-                        outbuf = outbuf[:]
+                        outbuf = bytearray()
 
                     in_packet = True
 

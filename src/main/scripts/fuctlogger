@@ -129,14 +129,13 @@ elif args.serial is not None:
         meta_out = {'firmware': meta[0]}
 
         for lid in meta[1]:
-            if lid not in [0xc02311, 0xf00411]:  # FIXME: y these locations no work?
-                info = i.get_location_info(lid)
-                if info.ram_page > 0:
-                    ram_data = i.get_ram_data((lid, 0), info.size)
-                    # FIXME: store data to json?
-                if info.flash_page > 0:
-                    flash_data = i.get_flash_data((lid, 0), info.size)
-                    # FIXME: store data to json?
+            info = i.get_location_info(lid)
+            if info.ram_page > 0:
+                ram_data = i.get_ram_data((lid, 0), info.size)
+                # FIXME: store data to json?
+            if info.flash_page > 0:
+                flash_data = i.get_flash_data((lid, 0), info.size)
+                # FIXME: store data to json?
 
         LOG.info("Interrogation done (%.2f sec)" % (time.time() - time1))
 

@@ -38,8 +38,7 @@ class Protocol(object):
         # -----
         beef = bytearray()
         if location is not None:
-            beef.extend(struct.pack('>H', location[0]))
-            beef.extend(struct.pack('>H', location[1]))
+            beef.extend(struct.pack('>HH', location[0], location[1]))
 
         if size is not None:
             beef.extend(struct.pack('>H', size))
@@ -48,9 +47,7 @@ class Protocol(object):
             beef.extend(data)
         # -----
         beef_size = len(beef)
-
         msg = bytearray()
-        msg.append(0xAA)
 
         if use_length and beef_size > 0:
             msg.append(0x01)
@@ -65,11 +62,28 @@ class Protocol(object):
         if beef_size > 0:
             msg.extend(beef)
 
-        checksum = sum(msg[1:]) & 0xff
+        checksum = sum(msg) & 0xff
         msg.append(checksum)
+
+        msg = Protocol.escape_packet(msg)
+        msg.insert(0, 0xAA)
         msg.append(0xCC)
 
         return msg
+
+    @staticmethod
+    def escape_packet(data):
+        edata = bytearray()
+        for c in data:
+            if c == 0xAA:
+                edata.extend(b'\xBB\x55')
+            elif c == 0xBB:
+                edata.extend(b'\xBB\x44')
+            elif c == 0xCC:
+                edata.extend(b'\xBB\x33')
+            else:
+                edata.append(c)
+        return edata
 
     @staticmethod
     def decode_packet(data):
