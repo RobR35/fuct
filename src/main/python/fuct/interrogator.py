@@ -61,11 +61,11 @@ class Interrogator(object):
                     meta_info = [(name, data[1].decode("ascii").rstrip('\0')) for name, cmd_id in meta_cmds if cmd_id + 1 == data[0]]
                     if meta_info:
                         m = meta_info[0]
-                        LOG.info("Received meta: %s" % m[0])
+                        LOG.debug("Received meta: %s" % m[0])
                         meta[m[0]] = m[1]
                     elif data[0] == Protocol.FE_CMD_LOCATION_ID_LIST + 1:
                         ids = len(data[1]) / 2
-                        LOG.info("Received %d location IDs" % ids)
+                        LOG.debug("Received %d location IDs" % ids)
                         location_ids = struct.unpack_from(">%dH" % ids, data[1])
 
                     # TODO: error message handling
@@ -76,7 +76,7 @@ class Interrogator(object):
         return meta, location_ids
 
     def get_location_info(self, location_id):
-        LOG.info("Get location info: 0x%02x" % location_id)
+        LOG.debug("Get location info: 0x%02x" % location_id)
         packet = Protocol.create_packet(Protocol.FE_CMD_LOCATION_ID_INFO, data=struct.pack(">H", location_id))
         LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
         self.ser.write(packet)
@@ -93,7 +93,7 @@ class Interrogator(object):
             LOG.warn("Failed to load location...")
 
     def get_ram_data(self, location, size):
-        LOG.info("Get RAM location: 0x%02x, offset: %d, size: %d" % (location[0], location[1], size))
+        LOG.debug("Get RAM location: 0x%02x, offset: %d, size: %d" % (location[0], location[1], size))
         packet = Protocol.create_packet(Protocol.FE_CMD_RAM_READ, location, size)
         LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
         self.ser.write(packet)
@@ -109,7 +109,7 @@ class Interrogator(object):
             LOG.warn("Failed to load location...")
 
     def get_flash_data(self, location, size):
-        LOG.info("Get FLASH location: 0x%02x, offset: %d, size: %d" % (location[0], location[1], size))
+        LOG.debug("Get FLASH location: 0x%02x, offset: %d, size: %d" % (location[0], location[1], size))
         packet = Protocol.create_packet(Protocol.FE_CMD_FLASH_READ, location, size)
         LOG.debug("--> %s" % binascii.hexlify(packet[1:-2]))
         self.ser.write(packet)

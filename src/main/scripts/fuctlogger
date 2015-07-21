@@ -126,8 +126,10 @@ elif args.serial is not None:
         time1 = time.time()
         i = interrogator.Interrogator(ser, queue_in, queue_out)
         meta = i.get_metadata()
+        LOG.info("Reading metadata and location IDs")
         meta_out = {'firmware': meta[0]}
 
+        LOG.info("Reading location data")
         for lid in meta[1]:
             info = i.get_location_info(lid)
             if info.ram_page > 0:
