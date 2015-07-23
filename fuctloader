@@ -7,6 +7,10 @@
 
 __author__ = 'ari'
 
-from fuct.apps import trigger
+from os.path import join
+from sys import path
 
-trigger.execute()
+path.append(join('src', 'main', 'python'))
+from fuct.apps import loader
+
+loader.execute()
