@@ -42,6 +42,7 @@ def write_trigger_message(offset, flash=False):
         protocol.Protocol.FE_CMD_RAM_WRITE if flash is False else protocol.Protocol.FE_CMD_FLASH_WRITE,
         location=protocol.Protocol.FE_LOCATION_TRIGGER,
         data=offset,
+        size=2,
         use_length=True)
 
 
