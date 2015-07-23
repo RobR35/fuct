@@ -66,7 +66,7 @@ class Interrogator(object):
                     elif data[0] == Protocol.FE_CMD_LOCATION_ID_LIST + 1:
                         ids = len(data[1]) / 2
                         LOG.debug("Received %d location IDs" % ids)
-                        location_ids = struct.unpack_from(">%dH" % ids, data[1])
+                        location_ids = struct.unpack_from(">%dH" % ids, buffer(data[1]))
 
                     # TODO: error message handling
 
@@ -88,7 +88,7 @@ class Interrogator(object):
             LOG.debug("<-- %s" % binascii.hexlify(resp))
             data = Protocol.decode_packet(resp)
             if data[0] == Protocol.FE_CMD_LOCATION_ID_INFO + 1:
-                return locinfo(*struct.unpack_from(">HHBBHHH", data[1]))
+                return locinfo(*struct.unpack_from(">HHBBHHH", buffer(data[1])))
         else:
             LOG.warn("Failed to load location...")
 
