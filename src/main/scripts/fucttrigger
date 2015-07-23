@@ -33,7 +33,7 @@ QUEUE_SIZE_LOG = 50
 def get_timing_values(rows):
     values = []
     for row in rows:
-        values.append(struct.unpack('>H', row[54:56]))
+        values.append(struct.unpack('>H', buffer(row[54:56])))
     return to_angle(min(values)[0]), to_angle(max(values)[0])
 
 
@@ -110,6 +110,7 @@ elif args.serial is not None:
         init = True
         offset_value = 0  # 1 unit = 0.02 deg
         queue_out.put(protocol.Protocol.create_packet(protocol.Protocol.FE_CMD_DECODER))
+        updating = False
 
         while True:
             try:
@@ -131,7 +132,7 @@ elif args.serial is not None:
                         LOG.info("Decoder: %s" % data[1])
                         queue_out.put(read_trigger_message(flash=True))
                     if data[0] == protocol.Protocol.FE_CMD_FLASH_READ + 1:
-                        offset_value = struct.unpack('>H', data[1])[0]
+                        offset_value = struct.unpack('>H', buffer(data[1]))[0]
                         LOG.info("Current trigger offset in flash: %.2f deg" % to_angle(offset_value))
                         if args.offset is not None:
                             offset_value = to_raw_angle(args.offset)
@@ -144,11 +145,12 @@ elif args.serial is not None:
                 else:
                     if data[0] == protocol.Protocol.FE_CMD_FLASH_WRITE + 1:
                         LOG.info("Trigger offset set to: %.2f deg" % to_angle(offset_value))
+                        updating = False
 
             except Queue.Empty:
                 pass
 
-            if not init:
+            if not init and not updating:
                 log_rows = []
                 for x in range(0, QUEUE_SIZE_LOG):
                     log_rows.append(queue_log.get(x))
@@ -187,6 +189,7 @@ elif args.serial is not None:
                     offset_value = offset_new
                     LOG.debug("Raw offset value: %d" % offset_new)
                     queue_out.put(write_trigger_message(struct.pack('>H', offset_value), flash=True))
+                    updating = True
 
     except KeyboardInterrupt:
         rxThread.stop()
