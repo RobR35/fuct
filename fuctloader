@@ -10,7 +10,8 @@ __author__ = 'ari'
 from os.path import join
 from sys import path
 
-path.append(join('src', 'main', 'python'))
+# prepend src path before systemwide path
+path.insert(0, join('src', 'main', 'python'))
 from fuct.apps import loader
 
 loader.execute()
