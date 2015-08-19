@@ -10,10 +10,10 @@ import sys
 import logging
 import binascii
 import hashlib
-import common
 from time import sleep
 from struct import pack, unpack_from
 from serial import SerialTimeoutException
+from . import common
 
 LOG = logging.getLogger('fuctlog')
 
@@ -112,8 +112,7 @@ class SMDevice():
     def check_device(self):
         resp = self.__device_info()
         if len(resp.data) == 3:
-            cid = ord(resp.data[0])
-            if cid == self.DEVICE_INFO_CONSTANT:
+            if resp.data[0] == self.DEVICE_INFO_CONSTANT:
                 device_id = unpack_from('>H', resp.data, 1)[0]
                 LOG.debug("Device ID: 0x%04x" % device_id)
                 device = self.__parse_device_info(device_id)
@@ -134,7 +133,7 @@ class SMDevice():
                     LOG.error("Device is unknown family")
                 return False
             else:
-                raise ValueError("Invalid device info constant (0x%02x), should be 0x%02x" % (cid, self.DEVICE_INFO_CONSTANT))
+                raise ValueError("Invalid device info constant (0x%02x), should be 0x%02x" % (resp.data[0], self.DEVICE_INFO_CONSTANT))
         else:
             raise ValueError("Invalid device info size (%d bytes), should be 3 bytes" % len(resp))
 
@@ -148,7 +147,7 @@ class SMDevice():
             resp = self.__read_block(addr, 0xFF)
             smdata += resp.data
             if rip:
-                sm_file.write("%04x:::%s\n" % (addr, binascii.hexlify(resp.data)))
+                sm_file.write("%04x:::%s\n" % (addr, binascii.hexlify(resp.data).decode('ascii')))
         if rip:
             sm_file.close()
 
@@ -157,7 +156,7 @@ class SMDevice():
 
         m = hashlib.md5()
         m.update(smdata)
-        sm_hash = binascii.hexlify(m.digest())
+        sm_hash = binascii.hexlify(m.digest()).decode('ascii')
         LOG.debug('SM MD5: %s' % sm_hash)
         info = self.SM_VERSIONS.get(sm_hash)
         if info is not None:
@@ -299,8 +298,8 @@ class SMDevice():
     def __write_command(self, cmd, args=None):
         try:
             self.ser.flushInput()
-            LOG.debug("--> 0x%02x" % cmd)
-            cmd_bytes = self.ser.write(chr(cmd))
+            LOG.debug("--> %02x" % cmd)
+            cmd_bytes = self.ser.write(bytearray([cmd]))
             if cmd_bytes > 0:
                 if args is not None:
                     LOG.debug("--> %s" % binascii.hexlify(args))
@@ -359,6 +358,9 @@ class SMDevice():
         sleep(pre_sleep / 1000 if pre_sleep > 1 else 1)
 
         data = self.ser.read(total_bytes)
+        if type(data) is str:  # Python 2
+            data = bytearray(data)
+
         LOG.debug("<-- %s" % binascii.hexlify(data))
         return data
 
@@ -367,7 +369,7 @@ class SMDevice():
             LOG.error('Invalid open response (too few bytes)')
             return None
 
-        resp = tuple([ord(x) for x in data[offset:offset + 3]])
+        resp = tuple([x for x in data[offset:offset + 3]])
         if resp == (self.RC_NO_ERROR, self.SC_COLD_RESET_EXECUTED, self.SM_PROMPT) or \
                 resp == (self.RC_NOT_RECOGNISED, self.SC_MONITOR_ACTIVE, self.SM_PROMPT):
             return SMResponse(resp[0], resp[1], data)
@@ -380,7 +382,7 @@ class SMDevice():
             LOG.error('Invalid response (too few bytes)')
             return None
 
-        resp = tuple([ord(x) for x in data[offset:offset + 3]])
+        resp = tuple([x for x in data[offset:offset + 3]])
         if resp == (self.RC_NO_ERROR, self.SC_MONITOR_ACTIVE, self.SM_PROMPT):
             return SMResponse(resp[0], resp[1], data[:-3])
 
