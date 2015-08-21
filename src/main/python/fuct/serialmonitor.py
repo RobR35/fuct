@@ -182,7 +182,7 @@ class SMDevice():
             self.__set_page(mempage.page)
             self.__erase_page()
 
-        blocks = len(mempage.data) / self.BLOCK_SIZE
+        blocks = int(len(mempage.data) / self.BLOCK_SIZE)
         trailing = len(mempage.data) % self.BLOCK_SIZE
         start_block = 0
         start_addr = mempage.address
@@ -209,10 +209,11 @@ class SMDevice():
         pages = last - start
 
         # TODO: saving raw data is good enough?
-        f = open(filepath, 'a+')
-        for i, page in enumerate(xrange(start, last)):
-            progress = float(i) / pages
-            common.print_progress(progress)
+        f = open(filepath, 'ab+')
+        for i, page in enumerate(range(start, last)):
+            if LOG.getEffectiveLevel() is not logging.DEBUG:
+                progress = float(i) / pages
+                common.print_progress(progress)
             self.__set_page(page)
             f.write(self.__read_page())
         f.close()
@@ -225,14 +226,14 @@ class SMDevice():
         total = end - start
         last = end + 1
         counter = 0
-        for page in xrange(start, last):
+        for page in range(start, last):
             self.__set_page(page)
             self.__erase_page()
-            if LOG.getEffectiveLevel() == logging.INFO:
+            if LOG.getEffectiveLevel() is not logging.DEBUG:
                 progress = float(counter) / total
                 common.print_progress(progress)
             counter += 1
-        if LOG.getEffectiveLevel() == logging.INFO:
+        if LOG.getEffectiveLevel() is not logging.DEBUG:
             sys.stdout.write("\r")
             sys.stdout.flush()
 
